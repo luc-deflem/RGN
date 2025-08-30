@@ -399,7 +399,6 @@ class GroceryApp {
         this.addBtn = document.getElementById('addBtn');
         this.groceryList = document.getElementById('groceryList');
         this.itemCount = document.getElementById('itemCount');
-        this.clearCompletedBtn = document.getElementById('clearCompleted');
 
         // Pantry tab elements
         this.standardItemInput = document.getElementById('standardItemInput');
@@ -653,33 +652,6 @@ class GroceryApp {
                 }
             }
         });
-        this.clearCompletedBtn.addEventListener('click', () => {
-            // console.log('🧹 Clear completed button clicked');
-            
-            // DELEGATE to shopping list module
-            if (window.realShoppingListManager && window.realShoppingListManager.clearCompleted) {
-                // console.log('🎯 Delegating clear completed to module');
-                const clearedCount = window.realShoppingListManager.clearCompleted();
-                // console.log(`🧹 Cleared ${clearedCount} completed items`);
-                
-                // IMPORTANT: Refresh pantry UI to update cart icons after clearing completed
-                if (window.realPantryManager) {
-                    // console.log('🔄 Refreshing pantry display after clear completed');
-                    window.realPantryManager.refreshDisplay();
-                }
-                
-                // Module handles its own shopping list re-rendering
-            } else {
-                console.warn('⚠️ Using fallback clear completed');
-                if (!this.shoppingList) {
-                    console.error('❌ Shopping list module not initialized');
-                    return;
-                }
-                const clearedCount = this.shoppingList.clearCompleted();
-                // console.log(`🧹 Cleared ${clearedCount} completed items`);
-                this.render();
-            }
-        });
 
         // Pantry events - use real pantry manager directly
         this.addStandardBtn.addEventListener('click', () => {
@@ -718,7 +690,7 @@ class GroceryApp {
                 }
             }
         });
-        this.addAllUnstockedBtn.addEventListener('click', () => this.addAllUnstockedToShopping());
+        this.addAllUnstockedBtn.addEventListener('click', () => window.realShoppingListManager.addAllUnstockedToShopping());
 
         // Category events
         this.addCategoryBtn.addEventListener('click', () => this.addCategory());
@@ -1842,50 +1814,7 @@ class GroceryApp {
         } else {
             console.error('❌ Shopping list module not available for sync');
         }
-        
-        // Get products that should be in shopping
-        const productsForShopping = this.allProducts.filter(product => product.inShopping);
-        // console.log('📦 Products marked inShopping:', productsForShopping.map(p => p.name));
-        
-        // Get current shopping items from real manager
-        const currentShoppingItems = this.shoppingList ? this.shoppingList.getAllItems() : [];
-        // console.log('🛒 Current shopping items:', currentShoppingItems.map(item => item.name));
-        
-        if (!this.shoppingList) {
-            console.error('❌ Real shopping list manager not available!');
-            return;
-        }
-        
-        // Instead of recreating the list, sync with real shopping list manager
-        // 1. Remove items that are no longer marked inShopping
-        const currentNames = new Set(currentShoppingItems.map(item => item.name.toLowerCase()));
-        const shouldBeNames = new Set(productsForShopping.map(p => p.name.toLowerCase()));
-        
-        // Remove items that shouldn't be in shopping anymore
-        for (const item of currentShoppingItems) {
-            if (!shouldBeNames.has(item.name.toLowerCase())) {
-                // console.log(`🗑️ Removing "${item.name}" - no longer marked inShopping`);
-                this.shoppingList.deleteItem(item.id);
-            }
-        }
-        
-        // Add items that should be in shopping but aren't yet
-        for (const product of productsForShopping) {
-            if (!currentNames.has(product.name.toLowerCase())) {
-                // console.log(`➕ Adding "${product.name}" - newly marked inShopping`);
-                this.shoppingList.addItem(product.name, product.category, product.inPantry || false, false);
-            }
-        }
-        
-        // ✅ UNIFIED ARCHITECTURE FIX: shoppingItems is now a getter-only property
-        // No assignment needed - this.shoppingItems automatically returns this.shoppingList.getAllItems()
-        
-        // console.log('✅ syncListsFromProducts() COMPLETED - Used real shopping list manager');
-        // console.log('📋 Final shopping items:', this.shoppingItems.map(item => ({
-        //     name: item.name,
-        //     completed: item.completed,
-        //     id: item.id
-        // })));
+        // Previous manual sync logic removed; module handles shopping list state
     }
 
     moveCategory(fromIndex, toIndex) {
@@ -3063,48 +2992,6 @@ class GroceryApp {
         return true;
     }
 
-    // Shopping List Methods (using real independent module)
-    toggleShoppingItemComplete(itemId) {
-        console.log(`🔄 Toggle shopping item complete: ${itemId}`);
-        
-        // Check if shopping list module is initialized
-        if (!this.shoppingList) {
-            console.error('❌ Shopping list module not initialized');
-            return;
-        }
-        
-        // Toggle in the real shopping list module
-        const toggledItem = this.shoppingList.toggleItem(itemId);
-        if (!toggledItem) {
-            console.error(`❌ Failed to toggle item ${itemId} in shopping list`);
-            return;
-        }
-        
-        console.log(`✅ Toggled item "${toggledItem.name}" completion: ${toggledItem.completed}`);
-        
-        // Update the corresponding product in allProducts
-        const product = this.allProducts.find(p => 
-            p.name.toLowerCase() === toggledItem.name.toLowerCase() && 
-            p.category === toggledItem.category
-        );
-        
-        if (product) {
-            product.completed = toggledItem.completed;
-            console.log(`🔄 Updated master product "${product.name}" completed: ${product.completed}`);
-            
-            // Save products to localStorage
-            if (this.productsManager && this.productsManager.saveAllProducts) {
-                this.productsManager.saveAllProducts();
-            }
-        } else {
-            console.warn(`⚠️ Could not find master product for "${toggledItem.name}"`);
-        }
-        
-        // Re-render the UI
-        this.render();
-        
-        return toggledItem;
-    }
 
 
 
@@ -3129,14 +3016,6 @@ class GroceryApp {
 
     // REMOVED: removeFromShoppingIfExists - functionality moved to pantry-manager-real.js
 
-    addAllUnstockedToShopping() {
-        // Delegate to shopping list module
-        if (window.realShoppingListManager && window.realShoppingListManager.addAllUnstockedToShopping) {
-            return window.realShoppingListManager.addAllUnstockedToShopping();
-        } else {
-            console.error('❌ Shopping list module not available');
-        }
-    }
 
     // Rendering Methods
     render() {
@@ -4050,9 +3929,9 @@ Future Enhancement: This could connect to a real AI service to generate custom r
                     type="checkbox" 
                     class="item-checkbox" 
                     ${item.completed ? 'checked' : ''}
-                    onchange="window.app.toggleShoppingItemComplete(${item.id});"
+                    onchange="window.realShoppingListManager.toggleItemComplete(${item.id});"
                 >
-                <div class="item-content" onclick="window.app.toggleShoppingItemComplete(${item.id});" style="cursor: pointer;" title="📱 Tap to mark as bought">
+                <div class="item-content" onclick="window.realShoppingListManager.toggleItemComplete(${item.id});" style="cursor: pointer;" title="📱 Tap to mark as bought">
                     <div class="item-name">${this.escapeHtml(item.name)}</div>
                     <div class="item-meta">
                         ${showCategory ? `<span class="item-category-small">${categoryEmoji} ${item.category}</span>` : ''}
