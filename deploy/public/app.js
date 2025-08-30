@@ -141,7 +141,8 @@ class GroceryApp {
                 
                 // Initialize UI rendering capabilities
                 this.realRecipesManager.initializeUI(this);
-                
+                this.realRecipesManager.attachEventListeners();
+
                 // console.log(`🍳 Real Recipes Manager initialized with UI - ${this.recipes.length} recipes`);
                 
                 // Re-render recipes if needed
@@ -759,68 +760,6 @@ class GroceryApp {
             }
         });
         this.productAiSuggestBtn.addEventListener('click', () => this.generateProductAIRecipes());
-
-        // Recipe events
-        this.recipeSearchInput.addEventListener('input', () => this.searchRecipes());
-        this.clearRecipeSearchBtn.addEventListener('click', () => this.clearRecipeSearch());
-        this.addRecipeBtn.addEventListener('click', () => {
-            // console.log('🔘 [DEBUG] Add Recipe button clicked!');
-            this.openRecipeCreationModal();
-        });
-
-        if (this.importRecipeBtn && this.recipeJsonFileInput) {
-            this.importRecipeBtn.addEventListener('click', () => this.recipeJsonFileInput.click());
-            this.recipeJsonFileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    try {
-                        const recipeObj = JSON.parse(reader.result);
-                        const existing = this.realRecipesManager.recipes || [];
-                        this.realRecipesManager.importData({ recipes: [...existing, recipeObj] });
-                        this.realRecipesManager.refreshDisplay?.();
-                        this.render();
-                    } catch (err) {
-                        console.error('Failed to import recipe JSON:', err);
-                        alert('Failed to import recipe JSON.');
-                    } finally {
-                        e.target.value = '';
-                    }
-                };
-                reader.readAsText(file);
-            });
-        }
-        
-        // Recipe import modal events - delegate to recipes module
-        if (document.getElementById('closeRecipeImportModal')) {
-            document.getElementById('closeRecipeImportModal').addEventListener('click', () => {
-                this.realRecipesManager.hideRecipeImportModal();
-            });
-        }
-        if (document.getElementById('cancelRecipeImport')) {
-            document.getElementById('cancelRecipeImport').addEventListener('click', () => {
-                this.realRecipesManager.hideRecipeImportModal();
-            });
-        }
-        if (document.getElementById('confirmRecipeImport')) {
-            document.getElementById('confirmRecipeImport').addEventListener('click', () => {
-                this.realRecipesManager.saveImportedRecipe();
-            });
-        }
-        if (document.getElementById('addImportedIngredient')) {
-            document.getElementById('addImportedIngredient').addEventListener('click', () => {
-                this.realRecipesManager.addIngredientRow();
-            });
-        }
-        
-        // Recipe filter events
-        this.cuisineFilter.addEventListener('change', () => this.realRecipesManager?.applyRecipeFilters());
-        this.mainIngredientFilter.addEventListener('change', () => this.realRecipesManager?.applyRecipeFilters());
-        this.seasonFilter.addEventListener('change', () => this.realRecipesManager?.applyRecipeFilters());
-        this.stockFilter.addEventListener('change', () => this.realRecipesManager?.applyRecipeFilters());
-        this.clearFiltersBtn.addEventListener('click', () => this.realRecipesManager?.clearRecipeFilters());
-        this.aiSuggestBtn.addEventListener('click', () => this.generateAIRecipes());
 
         // Meal planning events
         this.prevWeekBtn.addEventListener('click', () => this.navigateWeek(-1));
