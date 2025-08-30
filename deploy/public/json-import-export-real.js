@@ -261,8 +261,11 @@ class RealJsonImportExportManager {
         }
         
         if (importData.recipes) {
-            this.app.recipes = importData.recipes;
-            localStorage.setItem('recipes', JSON.stringify(importData.recipes));
+            if (window.realRecipesManager && typeof window.realRecipesManager.importData === 'function') {
+                window.realRecipesManager.importData(importData);
+            } else {
+                localStorage.setItem('recipes', JSON.stringify(importData.recipes));
+            }
             console.log(`🍳 Imported ${importData.recipes.length} recipes`);
         }
         
@@ -283,7 +286,6 @@ class RealJsonImportExportManager {
         const pantryCount = Array.isArray(this.app?.allProducts)
 
             ? this.app.allProducts.filter(p => p.inPantry).length
-
             : 0;
 
         console.log(`🛒 Shopping items: ${shoppingCount} (via getter)`);
