@@ -1409,6 +1409,10 @@ class RealRecipesManager {
         this.recipeCount = null;
         this.filteredRecipeCount = null;
         this.recipeSearchInput = null;
+        this.clearRecipeSearchBtn = null;
+        this.addRecipeBtn = null;
+        this.importRecipeBtn = null;
+        this.recipeJsonFileInput = null;
         this.cuisineFilter = null;
         this.mainIngredientFilter = null;
         this.seasonFilter = null;
@@ -1454,6 +1458,18 @@ class RealRecipesManager {
         if (!this.recipeSearchInput) {
             this.recipeSearchInput = document.getElementById('recipeSearchInput');
         }
+        if (!this.clearRecipeSearchBtn) {
+            this.clearRecipeSearchBtn = document.getElementById('clearRecipeSearchBtn');
+        }
+        if (!this.addRecipeBtn) {
+            this.addRecipeBtn = document.getElementById('addRecipeBtn');
+        }
+        if (!this.importRecipeBtn) {
+            this.importRecipeBtn = document.getElementById('importRecipeBtn');
+        }
+        if (!this.recipeJsonFileInput) {
+            this.recipeJsonFileInput = document.getElementById('recipeJsonFile');
+        }
         if (!this.cuisineFilter) {
             this.cuisineFilter = document.getElementById('cuisineFilter');
         }
@@ -1486,6 +1502,77 @@ class RealRecipesManager {
         if (!this.noRecipesFound) {
             this.noRecipesFound = document.getElementById('noRecipesFound');
         }
+    }
+
+    // ----- DOM getters -----
+    getRecipesList() {
+        this.initializeDOMElements();
+        return this.recipesList;
+    }
+
+    getRecipeCount() {
+        this.initializeDOMElements();
+        return this.recipeCount;
+    }
+
+    getFilteredRecipeCount() {
+        this.initializeDOMElements();
+        return this.filteredRecipeCount;
+    }
+
+    getRecipeSearchInput() {
+        this.initializeDOMElements();
+        return this.recipeSearchInput;
+    }
+
+    getClearRecipeSearchBtn() {
+        this.initializeDOMElements();
+        return this.clearRecipeSearchBtn;
+    }
+
+    getAddRecipeBtn() {
+        this.initializeDOMElements();
+        return this.addRecipeBtn;
+    }
+
+    getImportRecipeBtn() {
+        this.initializeDOMElements();
+        return this.importRecipeBtn;
+    }
+
+    getRecipeJsonFileInput() {
+        this.initializeDOMElements();
+        return this.recipeJsonFileInput;
+    }
+
+    getCuisineFilter() {
+        this.initializeDOMElements();
+        return this.cuisineFilter;
+    }
+
+    getMainIngredientFilter() {
+        this.initializeDOMElements();
+        return this.mainIngredientFilter;
+    }
+
+    getSeasonFilter() {
+        this.initializeDOMElements();
+        return this.seasonFilter;
+    }
+
+    getStockFilter() {
+        this.initializeDOMElements();
+        return this.stockFilter;
+    }
+
+    getClearFiltersBtn() {
+        this.initializeDOMElements();
+        return this.clearFiltersBtn;
+    }
+
+    getAiSuggestBtn() {
+        this.initializeDOMElements();
+        return this.aiSuggestBtn;
     }
 
     /**
