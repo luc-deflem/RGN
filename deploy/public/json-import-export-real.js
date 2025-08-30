@@ -230,7 +230,7 @@ class RealJsonImportExportManager {
             if (window.realProductsCategoriesManager && typeof window.realProductsCategoriesManager.importProducts === 'function') {
                 console.log(`📦 Importing ${importData.allProducts.length} products using safe import method...`);
                 const result = window.realProductsCategoriesManager.importProducts(importData.allProducts);
-                
+
                 if (result.success) {
                     console.log(`✅ Products imported successfully: ${result.imported} products`);
                     console.log(`🛒 Shopping items available: ${result.shoppingItems}`);
@@ -239,9 +239,14 @@ class RealJsonImportExportManager {
                     throw new Error(`Product import failed: ${result.error}`);
                 }
             } else {
-                throw new Error('Products Manager safe import method not available');
+                console.warn('⚠️ Products Manager not available, falling back to direct assignment');
+                // Directly store products when manager isn't ready
+                const productsArray = Array.isArray(importData.allProducts) ? importData.allProducts : [];
+                this.app.allProducts = productsArray;
+                localStorage.setItem('allProducts', JSON.stringify(productsArray));
+                localStorage.setItem('allProducts_backup', JSON.stringify(productsArray));
             }
-            
+
             console.log(`📦 Imported ${importData.allProducts.length} master products`);
         }
         
@@ -276,7 +281,9 @@ class RealJsonImportExportManager {
             ? this.app.shoppingItems.length
             : 0;
         const pantryCount = Array.isArray(this.app?.allProducts)
-            ? this.app.allProducts.filter(p => p.pantry).length
+
+            ? this.app.allProducts.filter(p => p.inPantry).length
+
             : 0;
 
         console.log(`🛒 Shopping items: ${shoppingCount} (via getter)`);
