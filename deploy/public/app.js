@@ -400,13 +400,6 @@ class GroceryApp {
         this.groceryList = document.getElementById('groceryList');
         this.itemCount = document.getElementById('itemCount');
 
-        // Pantry tab elements
-        this.standardItemInput = document.getElementById('standardItemInput');
-        this.standardCategorySelect = document.getElementById('standardCategorySelect');
-        this.addStandardBtn = document.getElementById('addStandardBtn');
-        this.standardList = document.getElementById('standardList');
-        this.addAllUnstockedBtn = document.getElementById('addAllUnstocked');
-
         // Category tab elements
         this.categoryInput = document.getElementById('categoryInput');
         this.categoryEmojiInput = document.getElementById('categoryEmojiInput');
@@ -652,45 +645,6 @@ class GroceryApp {
                 }
             }
         });
-
-        // Pantry events - use real pantry manager directly
-        this.addStandardBtn.addEventListener('click', () => {
-            if (window.realPantryManager) {
-                const itemName = this.standardItemInput.value.trim();
-                const category = this.standardCategorySelect.value;
-                
-                if (!itemName) {
-                    this.standardItemInput.focus();
-                    return;
-                }
-                
-                const result = window.realPantryManager.addItem(itemName, category);
-                if (result) {
-                    this.standardItemInput.value = '';
-                    this.standardItemInput.focus();
-                    window.realPantryManager.refreshDisplay();
-                }
-            }
-        });
-        this.standardItemInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && window.realPantryManager) {
-                const itemName = this.standardItemInput.value.trim();
-                const category = this.standardCategorySelect.value;
-                
-                if (!itemName) {
-                    this.standardItemInput.focus();
-                    return;
-                }
-                
-                const result = window.realPantryManager.addItem(itemName, category);
-                if (result) {
-                    this.standardItemInput.value = '';
-                    this.standardItemInput.focus();
-                    window.realPantryManager.refreshDisplay();
-                }
-            }
-        });
-        this.addAllUnstockedBtn.addEventListener('click', () => window.realShoppingListManager.addAllUnstockedToShopping());
 
         // Category events
         this.addCategoryBtn.addEventListener('click', () => this.addCategory());
