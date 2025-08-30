@@ -281,7 +281,9 @@ class RealJsonImportExportManager {
             ? this.app.shoppingItems.length
             : 0;
         const pantryCount = Array.isArray(this.app?.allProducts)
+
             ? this.app.allProducts.filter(p => p.inPantry).length
+
             : 0;
 
         console.log(`🛒 Shopping items: ${shoppingCount} (via getter)`);
