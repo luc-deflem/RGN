@@ -3463,14 +3463,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         this.generateAIRecipes();
     }
 
-    // Helper function to find product by name and category
-    findProductByNameAndCategory(name, category) {
-        return this.allProducts.find(p => 
-            p.name.toLowerCase() === name.toLowerCase() && 
-            p.category === category
-        );
-    }
-
     // Product recipes modal methods
     showProductRecipes(productId) {
         console.log(`🔍 showProductRecipes called with productId: ${productId}`);
