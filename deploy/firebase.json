@@ -1,0 +1,35 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "RGimages/**",
+      "local-ai-config.js",
+      "recipe-ai-exporter.js",
+      "extract-products.js",
+      "analyzed-recipes/**",
+      "local-config/**",
+      "local-credentials/**",
+      "temp-ai-analysis/**",
+      "ai-temp-*",
+      "api-keys.js",
+      "credentials.json",
+      ".env.local",
+      ".env.ai",
+      "config/**",
+      "../RGsecurity/**",
+      "dev-only-*",
+      "local-only-*",
+      "recipes-backup-with-ai/**"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

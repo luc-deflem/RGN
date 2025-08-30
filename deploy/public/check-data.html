@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Data Check Console</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .command-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; background: #f8f9fa; }
+        .console-output { background: #000; color: #0f0; padding: 10px; font-family: monospace; max-height: 400px; overflow-y: auto; margin: 10px 0; }
+        button { margin: 5px; padding: 8px 12px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { margin: 5px 0; padding: 8px; border-left: 3px solid #007bff; background: #f0f8ff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Data Presence Check</h1>
+    <p>Let's check if your data is actually loaded in the app...</p>
+
+    <div class="command-section">
+        <h3>📊 Core Data Check</h3>
+        <button onclick="checkCoreData()">Check Core Data Arrays</button>
+        <button onclick="checkDataCounts()">Check Data Counts</button>
+        <button onclick="checkSpecificData()">Check Specific Content</button>
+        <div id="core-data-results"></div>
+    </div>
+
+    <div class="command-section">
+        <h3>🎯 Console Commands to Try</h3>
+        <p>Copy and paste these commands in your browser console (F12):</p>
+        <div style="background: #f8f9fa; padding: 10px; font-family: monospace;">
+            <div><strong>Check Shopping Items:</strong><br><code>console.log('Shopping:', window.app.shoppingItems.length, window.app.shoppingItems)</code></div><br>
+            <div><strong>Check Products:</strong><br><code>console.log('Products:', window.app.allProducts.length, window.app.allProducts)</code></div><br>
+            <div><strong>Check Recipes:</strong><br><code>console.log('Recipes:', window.app.recipes.length, window.app.recipes)</code></div><br>
+            <div><strong>Check Categories:</strong><br><code>console.log('Categories:', window.app.categories.length, window.app.categories)</code></div><br>
+            <div><strong>Check Pantry:</strong><br><code>console.log('Pantry:', window.app.standardItems.length, window.app.standardItems)</code></div>
+        </div>
+    </div>
+
+    <div class="command-section">
+        <h3>📱 Live Results</h3>
+        <div id="live-results"></div>
+    </div>
+
+    <div class="console-output" id="console-output"></div>
+
+    <script>
+        // Capture console
+        const originalLog = console.log;
+        const consoleDiv = document.getElementById('console-output');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${args.join(' ')}`;
+            consoleDiv.appendChild(div);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+
+        function addResult(containerId, message) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'result';
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function checkCoreData() {
+            console.log('🔍 Checking core data presence...');
+            
+            if (window.app) {
+                addResult('core-data-results', '✅ window.app exists');
+                
+                const dataChecks = [
+                    { name: 'shoppingItems', data: window.app.shoppingItems },
+                    { name: 'standardItems (pantry)', data: window.app.standardItems },
+                    { name: 'allProducts', data: window.app.allProducts },
+                    { name: 'recipes', data: window.app.recipes },
+                    { name: 'categories', data: window.app.categories },
+                    { name: 'mealPlans', data: window.app.mealPlans }
+                ];
+                
+                dataChecks.forEach(check => {
+                    if (check.data) {
+                        const count = Array.isArray(check.data) ? check.data.length : Object.keys(check.data).length;
+                        const type = Array.isArray(check.data) ? 'array' : 'object';
+                        addResult('core-data-results', `✅ ${check.name}: ${count} items (${type})`);
+                        console.log(`${check.name}:`, count, 'items');
+                    } else {
+                        addResult('core-data-results', `❌ ${check.name}: undefined or null`);
+                        console.log(`${check.name}: MISSING`);
+                    }
+                });
+            } else {
+                addResult('core-data-results', '❌ window.app not found');
+            }
+        }
+
+        function checkDataCounts() {
+            console.log('🔍 Checking detailed data counts...');
+            
+            if (!window.app) {
+                addResult('core-data-results', '❌ No app found');
+                return;
+            }
+
+            // Shopping items
+            if (window.app.shoppingItems && window.app.shoppingItems.length > 0) {
+                console.log('🛒 Shopping Items Sample:', window.app.shoppingItems.slice(0, 3));
+            }
+
+            // Products
+            if (window.app.allProducts && window.app.allProducts.length > 0) {
+                console.log('📋 Products Sample:', window.app.allProducts.slice(0, 3));
+            }
+
+            // Recipes  
+            if (window.app.recipes && window.app.recipes.length > 0) {
+                console.log('🍳 Recipes Sample:', window.app.recipes.slice(0, 2));
+            }
+
+            // Categories
+            if (window.app.categories && window.app.categories.length > 0) {
+                console.log('📂 Categories:', window.app.categories);
+            }
+        }
+
+        function checkSpecificData() {
+            console.log('🔍 Checking specific data content...');
+            
+            if (!window.app) return;
+
+            // Check shopping list state
+            const shoppingCount = window.app.shoppingItems ? window.app.shoppingItems.length : 0;
+            const pantryCount = window.app.standardItems ? window.app.standardItems.length : 0;
+            const productCount = window.app.allProducts ? window.app.allProducts.length : 0;
+            const recipeCount = window.app.recipes ? window.app.recipes.length : 0;
+
+            addResult('live-results', `
+                <strong>Current Data Summary:</strong><br>
+                🛒 Shopping: ${shoppingCount} items<br>
+                🏠 Pantry: ${pantryCount} items<br>
+                📋 Products: ${productCount} items<br>
+                🍳 Recipes: ${recipeCount} items
+            `);
+
+            // Check if render methods exist
+            const renderMethods = ['renderShoppingList', 'renderStandardItems', 'renderAllProducts', 'renderRecipes'];
+            renderMethods.forEach(method => {
+                if (typeof window.app[method] === 'function') {
+                    addResult('live-results', `✅ ${method} method exists`);
+                } else {
+                    addResult('live-results', `❌ ${method} method missing`);
+                }
+            });
+        }
+
+        // Auto-run on load
+        setTimeout(() => {
+            console.log('🚀 Auto-checking data...');
+            checkCoreData();
+        }, 1000);
+    </script>
+</body>
+</html>

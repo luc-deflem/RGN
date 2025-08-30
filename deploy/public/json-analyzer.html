@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JSON Import Analyzer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .result { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .info { background: #cce7ff; border-left: 5px solid #007bff; }
+        .warning { background: #fff3cd; border-left: 5px solid #ffc107; }
+        .error { background: #f8d7da; border-left: 5px solid #dc3545; }
+        .success { background: #d4edda; border-left: 5px solid #28a745; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        input[type="file"] { margin: 10px 0; padding: 10px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .sample { max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 JSON Import Analyzer</h1>
+    <p>This tool analyzes your JSON file to understand why recipes aren't importing properly.</p>
+
+    <div>
+        <input type="file" id="fileInput" accept=".json" />
+        <button onclick="analyzeFile()">Analyze JSON File</button>
+        <button onclick="clearResults()">Clear</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function analyzeFile() {
+            clearResults();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                addResult('❌ Please select a JSON file first', 'error');
+                return;
+            }
+
+            addResult(`📁 Analyzing file: ${file.name} (${Math.round(file.size / 1024)} KB)`, 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const jsonContent = e.target.result;
+                    addResult(`📄 File read successfully (${jsonContent.length} characters)`, 'success');
+                    
+                    // Parse JSON
+                    const data = JSON.parse(jsonContent);
+                    addResult('✅ JSON parsing successful', 'success');
+                    
+                    // Analyze structure
+                    analyzeJsonStructure(data);
+                    
+                } catch (error) {
+                    addResult(`❌ JSON parsing failed: ${error.message}`, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                addResult('❌ Failed to read file', 'error');
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function analyzeJsonStructure(data) {
+            addResult('<h3>🔍 JSON Structure Analysis</h3>', 'info');
+            
+            // Top level properties
+            const topLevelProps = Object.keys(data);
+            addResult(`📋 Top-level properties: ${topLevelProps.join(', ')}`, 'info');
+            
+            // Check for recipes
+            if (!data.recipes) {
+                addResult('❌ No "recipes" property found!', 'error');
+                
+                // Look for similar properties
+                const possibleRecipeProps = topLevelProps.filter(prop => 
+                    prop.toLowerCase().includes('recipe') || 
+                    prop.toLowerCase().includes('meal') ||
+                    Array.isArray(data[prop])
+                );
+                
+                if (possibleRecipeProps.length > 0) {
+                    addResult(`💡 Possible recipe properties: ${possibleRecipeProps.join(', ')}`, 'warning');
+                }
+                return;
+            }
+            
+            if (!Array.isArray(data.recipes)) {
+                addResult(`❌ "recipes" property is not an array! It's: ${typeof data.recipes}`, 'error');
+                return;
+            }
+            
+            const recipeCount = data.recipes.length;
+            addResult(`✅ Found ${recipeCount} recipes in array`, 'success');
+            
+            if (recipeCount === 0) {
+                addResult('⚠️ Recipes array is empty!', 'warning');
+                return;
+            }
+            
+            // Analyze first few recipes
+            addResult('<h3>🧪 Recipe Sample Analysis</h3>', 'info');
+            
+            const sampleSize = Math.min(5, recipeCount);
+            let validCount = 0;
+            let invalidReasons = [];
+            
+            for (let i = 0; i < sampleSize; i++) {
+                const recipe = data.recipes[i];
+                addResult(`<h4>Recipe ${i + 1}:</h4>`, 'info');
+                
+                if (!recipe) {
+                    addResult(`❌ Recipe ${i + 1} is null/undefined`, 'error');
+                    invalidReasons.push('null/undefined');
+                    continue;
+                }
+                
+                // Show recipe structure
+                addResult(`<pre>${JSON.stringify(recipe, null, 2)}</pre>`, 'info');
+                
+                // Validate name
+                if (typeof recipe.name !== 'string') {
+                    addResult(`❌ Recipe ${i + 1}: name is not a string (${typeof recipe.name})`, 'error');
+                    invalidReasons.push('name not string');
+                    continue;
+                }
+                
+                if (!recipe.name.trim()) {
+                    addResult(`❌ Recipe ${i + 1}: name is empty`, 'error');
+                    invalidReasons.push('empty name');
+                    continue;
+                }
+                
+                addResult(`✅ Recipe ${i + 1}: "${recipe.name}" is valid`, 'success');
+                validCount++;
+                
+                // Show other properties
+                const props = Object.keys(recipe);
+                addResult(`📋 Properties: ${props.join(', ')}`, 'info');
+            }
+            
+            // Summary
+            addResult('<h3>📊 Analysis Summary</h3>', 'info');
+            addResult(`Valid recipes in sample: ${validCount}/${sampleSize}`, validCount === sampleSize ? 'success' : 'warning');
+            
+            if (invalidReasons.length > 0) {
+                addResult(`❌ Common issues: ${[...new Set(invalidReasons)].join(', ')}`, 'error');
+            }
+            
+            // Estimate full validation
+            const estimatedValid = Math.round((validCount / sampleSize) * recipeCount);
+            addResult(`📈 Estimated valid recipes in full file: ${estimatedValid}/${recipeCount}`, 
+                estimatedValid > recipeCount * 0.9 ? 'success' : 'warning');
+            
+            // Recommendations
+            addResult('<h3>💡 Recommendations</h3>', 'info');
+            
+            if (validCount < sampleSize) {
+                addResult('🔧 Consider fixing data issues before importing', 'warning');
+                
+                if (invalidReasons.includes('name not string')) {
+                    addResult('• Check that all recipe names are text strings', 'warning');
+                }
+                if (invalidReasons.includes('empty name')) {
+                    addResult('• Check that all recipes have non-empty names', 'warning');
+                }
+                if (invalidReasons.includes('null/undefined')) {
+                    addResult('• Check for null/undefined entries in recipes array', 'warning');
+                }
+            } else {
+                addResult('✅ Your JSON structure looks good for import!', 'success');
+            }
+        }
+    </script>
+</body>
+</html>

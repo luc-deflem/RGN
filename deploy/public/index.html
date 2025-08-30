@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Recipes & Groceries">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <title>Recipes & Groceries RGM v11.9.0</title>
+    <link rel="stylesheet" href="styles.css?v=11.5.1-safari-fix">
+    
+    <!-- Module Logging Control System -->
+    <script>
+        // Global Module Logging Control System
+        window.DEBUG_MODULES = {
+            recipes: false,        // recipes-real.js logging (disable for clean startup)
+            timers: false,         // recipe-timers.js logging  
+            smartImages: false,    // smart-image-system.js logging (enable for image debugging)
+            auth: false,          // auth.js logging
+            products: false,      // products-categories logging
+            pantry: false,        // pantry-manager logging
+            shopping: false,      // shopping-list logging
+            app: false,          // app.js logging
+            firebase: false,     // firebase-related logging
+            sync: false,         // sync-related logging
+            menu: false,         // menu-real.js logging
+            version: false       // version-manager.js logging
+        };
+        
+        // Helper function for conditional logging
+        window.debugLog = function(module, ...args) {
+            if (window.DEBUG_MODULES && window.DEBUG_MODULES[module]) {
+                console.log(`[${module.toUpperCase()}]`, ...args);
+            }
+        };
+        
+        console.log('🎛️ Module logging control system initialized');
+    </script>
+
+    <!-- Firebase SDK - load only when not running locally on Mac -->
+    <script>
+        const isMacLocal = window.location.protocol === 'file:' && navigator.platform.includes('Mac');
+        window.FIREBASE_DISABLED = isMacLocal;
+
+        if (!isMacLocal) {
+            const scripts = [
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js'
+            ];
+
+            scripts.forEach((src, index) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = false; // Maintain load order
+                if (index === scripts.length - 1) {
+                    script.onload = () => {
+                        // Initialize Firebase after all scripts are loaded
+                        setTimeout(() => {
+                            if (window.initializeSecureFirebase) {
+                                window.initializeSecureFirebase().catch(err =>
+                                    console.error('❌ Firebase initialization failed:', err)
+                                );
+                            }
+                        }, 100);
+                    };
+                }
+                document.head.appendChild(script);
+            });
+        }
+
+        // Function to load Firebase dynamically (for Dev mode toggle)
+        window.loadFirebaseDynamically = function() {
+            if (window.firebase) {
+                return Promise.resolve();
+            }
+
+            const scripts = [
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+                'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js'
+            ];
+
+            return new Promise((resolve, reject) => {
+                let scriptsLoaded = 0;
+
+                scripts.forEach((src) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = false;
+                    script.onload = () => {
+                        scriptsLoaded++;
+                        if (scriptsLoaded === scripts.length) {
+                            window.FIREBASE_DISABLED = false;
+                            resolve();
+                        }
+                    };
+                    script.onerror = (error) => {
+                        console.error('❌ Failed to load Firebase script:', src, error);
+                        reject(error);
+                    };
+                    document.head.appendChild(script);
+                });
+            });
+        };
+
+        // Function to initialize Firebase after dynamic loading
+        window.initializeFirebaseAfterLoad = function() {
+            if (window.initializeFirebase && typeof window.initializeFirebase === 'function') {
+                window.initializeFirebase();
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>🍳 Recipes & Groceries RGM 
+                    <!-- DEV BUTTON HIDDEN FOR PRODUCTION: <button id="modeToggleBtn" class="mode-toggle dev-mode" title="Click to switch between Development and Production modes">🔧 DEV</button> -->
+                    <span id="deviceIndicator" style="font-size: 12px; color: #007AFF; font-weight: normal; margin-left: 10px;"></span>
+                    <span id="versionDisplay" style="font-size: 14px; color: #666; font-weight: normal; margin-left: 10px;">v11.9.0</span>
+                </h1>
+                <button id="refreshBtn" class="refresh-btn" title="Hard Refresh (Cmd+Shift+R)">🔄</button>
+            </div>
+        </header>
+        
+        <nav class="tab-navigation">
+            <button class="tab-button active" data-tab="welcome" title="Welcome">🏡</button>
+            <button class="tab-button" data-tab="shopping" title="Shopping">🛒</button>
+            <button class="tab-button" data-tab="pantry" title="Pantry">🏠</button>
+            <button class="tab-button" data-tab="products" title="Products">📋</button>
+            <button class="tab-button" data-tab="recipes" title="Recipes">🍳</button>
+            <button class="tab-button" data-tab="meals" title="Meal Planning">📅</button>
+            <button class="tab-button" data-tab="categories" title="Categories">⚙️</button>
+            <button class="tab-button" data-tab="sync" title="Sync">📱</button>
+        </nav>
+        
+        <main>
+            <!-- Welcome Tab -->
+            <div class="tab-content active" id="welcome-tab">
+                <div class="welcome-container">
+                    <div class="welcome-header">
+                        <h2>🍽️ Welcome to Recipes & Groceries</h2>
+                        <!-- <p class="version-info">Version 11.2.3-ios-auth-debug</p> -->
+                    </div>
+                    
+                    <div class="welcome-features">
+                        <div class="feature-grid">
+                            <div class="feature-card" data-target="shopping">
+                                <div class="feature-icon">🛒</div>
+                                <h3>Shopping List</h3>
+                                <p>Manage your grocery shopping with organized lists and categories</p>
+                                <div class="feature-actions">
+                                    <button class="welcome-btn" onclick="window.app.switchTab('shopping')">Start Shopping</button>
+                                </div>
+                            </div>
+                            
+                            <div class="feature-card" data-target="recipes">
+                                <div class="feature-icon">🍳</div>
+                                <h3>Recipes</h3>
+                                <p>Store and organize your favorite recipes with AI-powered analysis</p>
+                                <div class="feature-actions">
+                                    <button class="welcome-btn" onclick="window.app.switchTab('recipes')">Recipes</button>
+                                </div>
+                            </div>
+                            
+                            <div class="feature-card" data-target="pantry">
+                                <div class="feature-icon">🏠</div>
+                                <h3>Pantry Stock</h3>
+                                <p>Track what you have at home and manage inventory</p>
+                                <div class="feature-actions">
+                                    <button class="welcome-btn" onclick="window.app.switchTab('pantry')">Check Pantry</button>
+                                </div>
+                            </div>
+                            
+                            <div class="feature-card" data-target="meals">
+                                <div class="feature-icon">📅</div>
+                                <h3>Meal Planning</h3>
+                                <p>Plan your weekly meals and generate shopping lists</p>
+                                <div class="feature-actions">
+                                    <button class="welcome-btn" onclick="window.app.switchTab('meals')">Plan Meals</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!--
+                    <div class="welcome-footer">
+                        <p>🎯 <strong>Perfect Shopping Workflow Achieved!</strong></p>
+                        <p>Mac ↔ iPhone sync with 99.95% Firebase cost optimization</p>
+                    </div>
+                    -->
+                </div>
+            </div>
+
+            <!-- Shopping List Tab -->
+            <div class="tab-content" id="shopping-tab">
+                <div class="add-item-section">
+                    <input type="text" id="itemInput" placeholder="Add item..." maxlength="100">
+                    <select id="categorySelect">
+                        <option value="produce">🥬 Produce</option>
+                        <option value="dairy">🥛 Dairy</option>
+                        <option value="meat">🥩 Meat</option>
+                        <option value="pantry">🥫 Pantry</option>
+                        <option value="frozen">🧊 Frozen</option>
+                        <option value="bakery">🍞 Bakery</option>
+                        <option value="other">📦 Other</option>
+                    </select>
+                    <button id="addBtn">Add</button>
+                </div>
+                
+                <div class="list-stats">
+                    <span id="itemCount">0 items</span>
+                    <button id="clearCompleted">Clear Completed</button>
+                </div>
+                
+                <div class="grocery-list" id="groceryList">
+                    <!-- Shopping items will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Pantry Stock Tab -->
+            <div class="tab-content" id="pantry-tab">
+                <div class="add-standard-item-section">
+                    <input type="text" id="standardItemInput" placeholder="Add item..." maxlength="100">
+                    <select id="standardCategorySelect">
+                        <option value="produce">🥬 Produce</option>
+                        <option value="dairy">🥛 Dairy</option>
+                        <option value="meat">🥩 Meat</option>
+                        <option value="pantry">🥫 Pantry</option>
+                        <option value="frozen">🧊 Frozen</option>
+                        <option value="bakery">🍞 Bakery</option>
+                        <option value="other">📦 Other</option>
+                    </select>
+                    <button id="addStandardBtn">Add</button>
+                </div>
+                
+                <div class="pantry-actions">
+                    <button id="addAllUnstocked">Add Out-of-Stock to List</button>
+                </div>
+                
+                <div class="standard-list" id="standardList">
+                    <!-- Standard items will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Products Tab -->
+            <div class="tab-content" id="products-tab">
+                <div class="products-search-section">
+                    <input type="text" id="productSearchInput" placeholder="Search products..." maxlength="100">
+                    <button id="clearSearchBtn">Clear</button>
+                </div>
+                
+                <div class="add-product-section">
+                    <input type="text" id="productInput" placeholder="Add new product..." maxlength="100">
+                    <select id="productCategorySelect">
+                        <!-- Options populated dynamically -->
+                    </select>
+                    <button id="addProductBtn">Add</button>
+                </div>
+                
+                <div class="products-stats">
+                    <div class="product-count-section">
+                        <span id="productCount">0 products</span>
+                        <span id="filteredCount" style="display: none;">0 shown</span>
+                    </div>
+                    <div class="product-filters">
+                        <select id="stockStatusFilter" class="filter-dropdown">
+                            <option value="">All Products</option>
+                            <option value="inStock">✅ In Stock</option>
+                            <option value="outOfStock">❌ Out of Stock</option>
+                            <option value="inShopping">🛒 In Shopping List</option>
+                        </select>
+                        <select id="categoryFilter" class="filter-dropdown">
+                            <option value="">All Categories</option>
+                        </select>
+                        <button id="clearProductFiltersBtn" class="clear-filters-btn" style="display: none;">Clear</button>
+                        <button id="productAiSuggestBtn" class="ai-suggest-btn" style="display: none;">🤖 Recipe Ideas</button>
+                    </div>
+                </div>
+                
+                <!-- Orphaned Products Recovery Section -->
+                <div class="orphaned-products-section" id="orphanedProductsSection" style="display: none;">
+                    <div class="orphaned-header">
+                        <h3>🚨 Orphaned Products - Need Category Assignment</h3>
+                        <p>These products have invalid categories and need to be fixed:</p>
+                    </div>
+                    <div class="orphaned-products-list" id="orphanedProductsList">
+                        <!-- Orphaned products will be listed here -->
+                    </div>
+                </div>
+                
+                <div class="products-list" id="productsList">
+                    <!-- Products will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Recipes Tab -->
+            <div class="tab-content" id="recipes-tab">
+                <div class="recipes-header-row">
+                    <div class="recipes-search-section">
+                        <input type="text" id="recipeSearchInput" placeholder="Search recipes by name, cuisine, ingredient..." maxlength="100">
+                        <button id="clearRecipeSearchBtn">Clear</button>
+                    </div>
+                    <div class="add-recipe-section">
+                        <button id="addRecipeBtn">➕ Add Recipe</button>
+                        <button id="importRecipeBtn">📥 Import Recipe</button>
+                        <input type="file" id="recipeJsonFile" accept=".json" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="recipes-stats">
+                    <div class="recipe-count-section">
+                        <span id="recipeCount">0 recipes</span>
+                        <span id="filteredRecipeCount" style="display: none;">0 shown</span>
+                    </div>
+                    <div class="recipe-filters">
+                        <select id="cuisineFilter" class="filter-dropdown">
+                            <option value="">All Cuisines</option>
+                        </select>
+                        <select id="mainIngredientFilter" class="filter-dropdown">
+                            <option value="">All Ingredients</option>
+                        </select>
+                        <select id="seasonFilter" class="filter-dropdown">
+                            <option value="">All Seasons</option>
+                        </select>
+                        <select id="stockFilter" class="filter-dropdown">
+                            <option value="">All Recipes</option>
+                            <option value="available">✅ Available (All in Stock)</option>
+                            <option value="partial">⚠️ Partially Available</option>
+                        </select>
+                        <button id="clearFiltersBtn" class="clear-filters-btn" style="display: none;">Clear</button>
+                        <button id="aiSuggestBtn" class="ai-suggest-btn" style="display: none;">🤖 AI Recipe Ideas</button>
+                    </div>
+                </div>
+                
+                <div class="recipes-list" id="recipesList">
+                    <!-- Recipes will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Meals/Calendar Tab -->
+            <div class="tab-content" id="meals-tab">
+                <div class="meals-header">
+                    <div class="meals-controls">
+                        <button id="prevWeekBtn" class="week-nav-btn">← Previous</button>
+                        <h2 id="currentWeekRange">Week of ...</h2>
+                        <button id="nextWeekBtn" class="week-nav-btn">Next →</button>
+                    </div>
+                    <div class="meals-actions">
+                        <button id="generateShoppingListBtn" class="generate-btn">📝 Generate Shopping List</button>
+                        <button id="clearWeekBtn" class="clear-week-btn">🗑️ Clear Week</button>
+                    </div>
+                </div>
+                
+                <div class="calendar-container">
+                    <div id="mealCalendar" class="meal-calendar">
+                        <!-- Calendar will be dynamically generated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories Management Tab -->
+            <div class="tab-content" id="categories-tab">
+                <!-- Fixed Header Section -->
+                <div class="categories-header">
+                    <div class="add-category-section">
+                        <input type="text" id="categoryInput" placeholder="Add new category..." maxlength="50">
+                        <input type="text" id="categoryEmojiInput" placeholder="🏷️" maxlength="10">
+                        <button id="addCategoryBtn">Add Category</button>
+                    </div>
+                    
+                    <div class="category-help">
+                        <p><strong>Shop Order:</strong> Drag categories to match your store's layout for optimal shopping flow.</p>
+                    </div>
+                </div>
+                
+                <!-- Scrollable Categories List -->
+                <div class="categories-list" id="categoriesList">
+                    <!-- Categories will be dynamically added here -->
+                </div>
+                
+                <!-- Fixed Dev Tools Section (only visible in Dev mode) -->
+                <div class="dev-tools-section" id="devToolsSection" style="display: none;">
+                    <h3>🔧 Developer Tools</h3>
+                    
+                    <div class="image-path-setting">
+                        <label for="imagesFolderPath">Local Images Folder Path:</label>
+                        <input type="text" id="imagesFolderPath" placeholder="e.g., /Users/yourname/Documents/GroceryImages/" maxlength="200">
+                        <button id="testImagePathBtn" class="test-btn">Test Path</button>
+                        <button id="uploadImageBtn" class="test-btn">Upload Images to Firebase</button>
+                        <button id="syncExistingImagesBtn" class="test-btn">🔄 Sync All Existing Images</button>
+                        <button id="migrateGoogleImagesBtn" class="test-btn primary">🚀 Migrate Google Images</button>
+                    </div>
+                    
+                    <div class="dev-help">
+                        <p><strong>🚀 Google Image Migration:</strong> Automatically download Google images to local folder</p>
+                        <p>• <strong>Smart Detection:</strong> Finds all Google Drive/Photos URLs in your recipes</p>
+                        <p>• <strong>Auto-Download:</strong> Downloads full-size images to your Downloads folder</p>
+                        <p>• <strong>Firebase Sync:</strong> Uploads reduced versions for mobile access</p>
+                        <p>• <strong>Safe Migration:</strong> Creates backup and updates recipe references</p>
+                        <p>• <strong>Batch Process:</strong> Handles all images at once - no manual work!</p>
+                        <p><strong>⚠️ Note:</strong> Downloaded images will go to your Downloads folder. Move them to your images folder path for the app to find them locally.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sync Tab -->
+            <div class="tab-content" id="sync-tab">
+                <div class="sync-section">
+                    <h3>🔄 Real-Time Firebase Sync</h3>
+                    
+                    <!-- Firebase Connection Status -->
+                    <div class="firebase-status">
+                        <div id="firebaseStatus" class="status-indicator">
+                            <span class="status-dot offline"></span>
+                            <span class="status-text">Connecting to Firebase...</span>
+                        </div>
+                        <div id="syncIndicator" class="sync-indicator" style="display: none;">
+                            <span class="sync-dot"></span>
+                            <span class="sync-text">Syncing...</span>
+                        </div>
+                    </div>
+
+                    <!-- Account / Sign in -->
+					<div class="auth-card">
+					  <h3>🔐 Account</h3>
+					
+					  <!-- Signed out -->
+					  <div id="authSignedOut">
+					    <p>Sign in to enable cloud sync.</p>
+					    <div class="auth-row">
+					      <input id="authEmail" type="email" placeholder="email@example.com" autocomplete="username" />
+					    </div>
+					    <div class="auth-row">
+					      <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+					    </div>
+					    <div class="auth-actions">
+					      <button id="signInBtn" class="sync-btn">🔑 Sign in</button>
+					      <!-- Optional: enable if you want to create accounts from the app instead of console -->
+					      <!-- <button id="signUpBtn" class="sync-btn secondary">➕ Create account</button> -->
+					    </div>
+					    <div id="authError" class="auth-error" style="display:none;"></div>
+					  </div>
+					
+					  <!-- Signed in -->
+					  <div id="authSignedIn" style="display:none;">
+					    <p>Signed in as <strong id="authUserEmail"></strong></p>
+					    <p>UID: <code id="authUserUid"></code> <button id="copyUidBtn" class="sync-btn secondary">Copy UID</button></p>
+					    <div class="auth-actions">
+					      <button id="signOutBtn" class="sync-btn danger">🚪 Sign out</button>
+					    </div>
+					  </div>
+					</div>
+                    
+                    <!-- Firebase Actions -->
+                    <div class="firebase-actions">
+                        <button id="enableFirebaseBtn" class="sync-btn">🔥 Enable Firebase Sync</button>
+                        <button id="syncNowBtn" class="sync-btn secondary" style="display: none;">⚡ Sync Now</button>
+                        <button id="disableFirebaseBtn" class="sync-btn danger" style="display: none;">🚫 Disable Sync</button>
+                    </div>
+                    
+                    <div class="firebase-info" id="firebaseInfo" style="display: none;">
+                        <h4>🔥 Firebase Sync Active</h4>
+                        <p><strong>✅ Benefits:</strong></p>
+                        <p>• Real-time sync across all devices</p>
+                        <p>• Share with family members instantly</p>
+                        <p>• Automatic backup in the cloud</p>
+                        <p>• Works on iPhone, iPad, Mac simultaneously</p>
+                    </div>
+                    
+                    <h3>📱 Manual Export/Import (Backup)</h3>
+                    <div class="sync-actions">
+                        <button id="exportDataBtn" class="sync-btn">📤 Export Data</button>
+                        <button id="importDataBtn" class="sync-btn secondary">📥 Import Data</button>
+                        <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                    </div>
+                    
+                    <div class="csv-section">
+                        <h4>📊 CSV Product Import</h4>
+                        <div class="csv-actions">
+                            <button id="importCsvBtn" class="sync-btn csv-btn">📄 Import Products from CSV</button>
+                            <button id="downloadCsvTemplateBtn" class="sync-btn csv-btn secondary">📋 Download CSV Template</button>
+                            <button id="showCsvTextBtn" class="sync-btn csv-btn secondary">📝 Paste CSV Text</button>
+                            <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                        </div>
+                        <div class="csv-import-mode">
+                            <label>
+                                <input type="radio" name="productImportMode" value="replace" checked> Replace Mode (Clear existing, import new)
+                            </label>
+                            <label>
+                                <input type="radio" name="productImportMode" value="update"> Update Mode (Merge with existing)
+                            </label>
+                        </div>
+                        <div id="csvTextArea" class="csv-text-input" style="display: none;">
+                            <textarea id="csvTextContent" placeholder="Paste your CSV content here..." rows="8"></textarea>
+                            <div class="csv-text-actions">
+                                <button id="importCsvTextBtn" class="sync-btn csv-btn">📥 Import from Text</button>
+                                <button id="cancelCsvTextBtn" class="sync-btn csv-btn secondary">Cancel</button>
+                            </div>
+                        </div>
+                        <div class="csv-info">
+                            <p><strong>📝 CSV Format:</strong> name, category, inShopping, inPantry, inStock, inSeason</p>
+                            <p><strong>📂 Categories:</strong> produce, dairy, meat, pantry, frozen, bakery, other</p>
+                            <p><strong>✅ Boolean values:</strong> TRUE or FALSE</p>
+                            <p><small><em>💡 Download template first, then fill with your products</em></small></p>
+                        </div>
+                    </div>
+                    
+                    <div class="csv-section">
+                        <h4>🍳 CSV Recipe Import</h4>
+                        <div class="recipe-import-modes">
+                            <div class="import-mode-section">
+                                <h5>📄 Single File Import</h5>
+                                <div class="csv-actions">
+                                    <button id="importRecipeCsvBtn" class="sync-btn csv-btn">📄 Import Recipes (Single File)</button>
+                                    <button id="downloadRecipeCsvTemplateBtn" class="sync-btn csv-btn secondary">📋 Download Template</button>
+                                    <input type="file" id="recipeCsvFileInput" accept=".csv" style="display: none;">
+                                </div>
+                                <div class="csv-info">
+                                    <p><strong>📝 Format:</strong> recipeName, description, preparation, ingredientName, quantity, unit</p>
+                                    <p><strong>🔄 Multiple rows per recipe:</strong> One row for each ingredient</p>
+                                </div>
+                            </div>
+                            
+                            <div class="import-mode-section">
+                                <h5>📄📄 Two File Import</h5>
+                                <div class="csv-actions">
+                                    <button id="importTwoFileRecipesBtn" class="sync-btn csv-btn">📄 Import Recipes (Two Files)</button>
+                                    <button id="importIngredientsFileBtn" class="sync-btn csv-btn secondary" style="display: none;">📄 Select Ingredients File</button>
+                                    <button id="downloadTwoFileTemplatesBtn" class="sync-btn csv-btn secondary">📋 Download Templates</button>
+                                    <input type="file" id="recipeInfoFileInput" accept=".csv" style="display: none;">
+                                    <input type="file" id="recipeIngredientsFileInput" accept=".csv" style="display: none;">
+                                </div>
+                                <div class="csv-info">
+                                    <p><strong>📄 File 1 (Info):</strong> recipeName, description, preparation, cuisine, mainIngredient, season, image, ingredientsText, persons</p>
+                                    <p><strong>📄 File 2 (Ingredients):</strong> recipeName, ingredientName, quantity, unit</p>
+                                    <p><strong>🔗 Matching:</strong> Files linked by recipeName</p>
+                                </div>
+                            </div>
+                            
+                            <div class="import-mode-section">
+                                <h5>📄 Recipe-Only Import</h5>
+                                <div class="csv-actions">
+                                    <button id="importRecipeOnlyBtn" class="sync-btn csv-btn">📄 Import Recipes Only</button>
+                                    <button id="downloadRecipeOnlyTemplateBtn" class="sync-btn csv-btn secondary">📋 Download Template</button>
+                                    <input type="file" id="recipeOnlyFileInput" accept=".csv" style="display: none;">
+                                </div>
+                                <div class="csv-info">
+                                    <p><strong>📄 Format:</strong> recipeName, description, preparation, cuisine, mainIngredient, season, image, ingredientsText, persons</p>
+                                    <p><strong>🥘 Perfect for:</strong> Recipes with only text-based ingredient lists</p>
+                                    <p><strong>⚡ Fast:</strong> No ingredient matching required</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="csv-info">
+                            <p><strong>📦 Ingredient names:</strong> Must match existing products exactly</p>
+                            <p><strong>📏 Units:</strong> g, kg, ml, l, pcs, tsp, tbsp, cup, pinch, cl</p>
+                            <p><small><em>💡 Two-file mode: Select info file first, then ingredients file</em></small></p>
+                        </div>
+                    </div>
+                    <div class="sync-info">
+                        <h4>🍳 Multi-Device Workflow:</h4>
+                        <p><strong>📱 iPhone:</strong> Perfect for shopping - quick access to lists in-store</p>
+                        <p><strong>💻 Mac & iPad:</strong> Ideal for menu planning, recipe management, and data entry</p>
+                        <br>
+                        <h4>📊 How to Sync:</h4>
+                        <p><strong>1. Export:</strong> Use 📤 Export on your current device to save all data</p>
+                        <p><strong>2. Transfer:</strong> Share the "grocery-data.json" file via iCloud, email, or AirDrop</p>
+                        <p><strong>3. Import:</strong> Use 📥 Import on your other device to load the data</p>
+                        <br>
+                        <p><small><em>💡 Tip: Export from your main device (Mac/iPad) regularly and import to iPhone before shopping</em></small></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Change Category Modal -->
+    <div id="changeCategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Change Category</span>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="newCategorySelect">Select new category for "<span id="itemNameSpan"></span>":</label>
+                <select id="newCategorySelect">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelChangeCategory">Cancel</button>
+                <button class="modal-btn primary" id="confirmChangeCategory">Change Category</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Edit Modal -->
+    <div id="productEditModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Edit Product</span>
+                <button class="close-modal" id="closeProductModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label for="editProductName">Product Name:</label>
+                    <input type="text" id="editProductName" maxlength="100">
+                </div>
+                
+                <div class="modal-field">
+                    <label for="editProductCategory">Category:</label>
+                    <select id="editProductCategory">
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="modal-field">
+                    <label>Status Options:</label>
+                    <div class="status-checkboxes">
+                        <label class="status-checkbox-label">
+                            <input type="checkbox" id="editInShopping">
+                            <span>🛒 Shopping List</span>
+                        </label>
+                        <label class="status-checkbox-label">
+                            <input type="checkbox" id="editCompleted">
+                            <span>✅ Bought</span>
+                        </label>
+                        <label class="status-checkbox-label">
+                            <input type="checkbox" id="editInPantry">
+                            <span>🏠 Pantry</span>
+                        </label>
+                        <label class="status-checkbox-label">
+                            <input type="checkbox" id="editInStock">
+                            <span>✅ In Stock</span>
+                        </label>
+                        <label class="status-checkbox-label">
+                            <input type="checkbox" id="editInSeason">
+                            <span>🌱 In Season</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelProductEdit">Cancel</button>
+                <button class="modal-btn primary" id="confirmProductEdit">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Edit Modal -->
+    <div id="recipeEditModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Edit Recipe</span>
+                <div class="modal-header-actions">
+                    <button class="maximize-modal" id="maximizeRecipeModal" title="Maximize">⛶</button>
+                    <button class="close-modal" id="closeRecipeModal">&times;</button>
+                </div>
+            </div>
+            <!-- Recipe Image Header -->
+            <div class="recipe-image-header" id="recipeImageHeader" style="display: none;">
+                <img id="recipeHeaderImage" alt="Recipe Image">
+            </div>
+            <div class="modal-body">
+                <!-- Left Column: Basic info, preparation, and text ingredients -->
+                <div class="recipe-details">
+                    <div class="modal-field">
+                        <label for="editRecipeName">Recipe Name:</label>
+                        <input type="text" id="editRecipeName" maxlength="100">
+                    </div>
+                    
+                    <div class="modal-field">
+                        <label for="editRecipeDescription">Description:</label>
+                        <textarea id="editRecipeDescription" placeholder="Short description for the recipe list..." rows="2"></textarea>
+                    </div>
+                    
+                    <div class="modal-field">
+                        <label for="editRecipePreparation">Preparation Instructions:</label>
+                        <textarea id="editRecipePreparation" placeholder="Detailed preparation steps and instructions..." rows="12"></textarea>
+                    </div>
+
+                    <div class="modal-field">
+                        <label>Timers:</label>
+                        <div id="recipeTimerSuggestions"></div>
+                    </div>
+
+                    <div class="modal-field">
+                        <label for="editRecipeIngredientsText">Ingredients by Text (optional):</label>
+                        <textarea id="editRecipeIngredientsText" placeholder="For recipes with text-only ingredients list: '2 cups flour, 3 eggs, 250ml milk...'" rows="3"></textarea>
+                        <small class="field-help">Use this for recipes where you only have a text description of ingredients</small>
+                        <button type="button" id="convertIngredientsBtn" class="convert-btn">🤖 Convert to Structured Ingredients</button>
+                    </div>
+                </div>
+                
+                <!-- Right Column: Recipe Information, Image, and Structured Ingredients -->
+                <div class="recipe-right-column">
+                    <!-- Recipe Metadata Section - Top Right -->
+                    <div class="recipe-metadata-section">
+                        <h4>Recipe Information</h4>
+                        <div class="metadata-fields">
+                            <div class="metadata-field">
+                                <label for="editRecipeCuisine">Cuisine:</label>
+                                <input type="text" id="editRecipeCuisine" placeholder="e.g., Italian, Belgian, French..." maxlength="50" list="cuisineOptions">
+                                <datalist id="cuisineOptions">
+                                    <option value="Belgian">
+                                    <option value="Italian">
+                                    <option value="French">
+                                    <option value="Spanish">
+                                    <option value="Greek">
+                                    <option value="Asian">
+                                    <option value="Mexican">
+                                    <option value="American">
+                                    <option value="Mediterranean">
+                                    <option value="International">
+                                </datalist>
+                            </div>
+                            
+                            <div class="metadata-field">
+                                <label for="editRecipeMainIngredient">Main Ingredient:</label>
+                                <input type="text" id="editRecipeMainIngredient" placeholder="e.g., chicken, pasta, veal..." maxlength="50" list="mainIngredientOptions">
+                                <datalist id="mainIngredientOptions">
+                                    <option value="chicken">
+                                    <option value="beef">
+                                    <option value="veal">
+                                    <option value="pork">
+                                    <option value="fish">
+                                    <option value="pasta">
+                                    <option value="rice">
+                                    <option value="vegetables">
+                                    <option value="eggs">
+                                    <option value="cheese">
+                                </datalist>
+                            </div>
+                            
+                            <div class="metadata-field">
+                                <label for="editRecipeSeason">Season:</label>
+                                <select id="editRecipeSeason">
+                                    <option value="">Select season...</option>
+                                    <option value="spring">Spring</option>
+                                    <option value="summer">Summer</option>
+                                    <option value="autumn">Autumn</option>
+                                    <option value="winter">Winter</option>
+                                    <option value="all-year">All Year</option>
+                                </select>
+                            </div>
+                            
+                            <!-- NEW FIELDS -->
+                            <div class="metadata-field">
+                                <label for="editRecipePrepTime">Prep Time:</label>
+                                <input type="text" id="editRecipePrepTime" placeholder="15 min" maxlength="20">
+                            </div>
+                            
+                            <div class="metadata-field">
+                                <label for="editRecipeCookTime">Cook Time:</label>
+                                <input type="text" id="editRecipeCookTime" placeholder="30 min" maxlength="20">
+                            </div>
+                            
+                            <div class="metadata-field">
+                                <label for="editRecipeServings">Servings:</label>
+                                <input type="number" id="editRecipeServings" placeholder="4" min="1" max="20">
+                            </div>
+                            
+                            <div class="metadata-field">
+                                <label for="editRecipeAllergens">Allergens:</label>
+                                <input type="text" id="editRecipeAllergens" placeholder="gluten, lactose, noten" maxlength="100">
+                            </div>
+                            
+                            <div class="metadata-field" style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="editRecipeGlutenFree" style="margin: 0;">
+                                <label for="editRecipeGlutenFree" style="margin: 0;">🌾 Gluten Free</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Large Recipe Image Section - Middle Right -->
+                    <div class="recipe-image-section">
+                        <div class="metadata-field">
+                            <label for="editRecipeImage">Recipe Image:</label>
+                            <div class="image-input-container">
+                                <input type="text" id="editRecipeImage" placeholder="Enter image URL or filename (e.g., belgian-waffles.jpg)" maxlength="200">
+                                <button type="button" id="browseImageBtn" class="browse-btn">Browse</button>
+                                <button type="button" id="downloadImageUrlBtn" class="download-btn" title="Download image from URL">📥 Download</button>
+                                <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                            </div>
+                            <div class="image-preview" id="imagePreview" style="display: none;">
+                                <img id="previewImage" src="" alt="Recipe preview">
+                                <button type="button" id="removeImageBtn" class="remove-btn">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Structured Ingredients Section - Bottom Right -->
+                    <div class="modal-field">
+                        <label>Structured Ingredients:</label>
+                        <div class="ingredients-section">
+                            <div class="recipe-persons-section">
+                                <label for="recipePersons">Number of persons this recipe serves:</label>
+                                <input type="number" id="recipePersons" placeholder="e.g., 4" min="1" max="20" value="4">
+                            </div>
+                            <div class="add-ingredient">
+                                <div class="product-search-container">
+                                    <input type="text" id="ingredientProductSearch" placeholder="Search for product..." autocomplete="off">
+                                    <div id="ingredientProductResults" class="search-results"></div>
+                                    <input type="hidden" id="selectedProductId">
+                                </div>
+                                <input type="number" id="ingredientQuantity" placeholder="Amount" step="0.1" min="0">
+                                <select id="ingredientUnit">
+                                    <option value="g">grams (g)</option>
+                                    <option value="kg">kilograms (kg)</option>
+                                    <option value="ml">milliliters (ml)</option>
+                                    <option value="cl">centiliters (cl)</option>
+                                    <option value="l">liters (l)</option>
+                                    <option value="pcs">pieces (pcs)</option>
+                                    <option value="pinch">pinch</option>
+                                    <option value="tsp">teaspoon (tsp)</option>
+                                    <option value="tbsp">tablespoon (tbsp)</option>
+                                    <option value="cup">cup</option>
+                                </select>
+                                <button type="button" id="addIngredientBtn">Add</button>
+                            </div>
+                            <div class="ingredients-list" id="ingredientsList">
+                                <!-- Ingredients will be listed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn plan-btn" id="planRecipeFromModal">📅 Plan Recipe</button>
+                <button class="modal-btn secondary" id="cancelRecipeEdit">Cancel</button>
+                <button class="modal-btn primary" id="confirmRecipeEdit">Save Recipe</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meal Type Selection Modal -->
+    <div id="mealTypeSelectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Choose Meal Type</span>
+                <button class="close-modal" id="closeMealTypeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="meal-type-info">
+                    <p>What type of meal would you like to add for <strong id="selectedMealSlot">this meal</strong>?</p>
+                </div>
+                
+                <div class="meal-type-options">
+                    <button class="meal-type-btn recipe-btn" id="selectRecipeBtn">
+                        <div class="meal-type-icon">🍳</div>
+                        <div class="meal-type-label">Recipe</div>
+                        <div class="meal-type-desc">Full recipe with instructions</div>
+                    </button>
+                    
+                    <button class="meal-type-btn simple-btn" id="selectSimpleMealBtn">
+                        <div class="meal-type-icon">🥘</div>
+                        <div class="meal-type-label">Simple Meal</div>
+                        <div class="meal-type-desc">Combine individual products</div>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelMealTypeSelection">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simple Meal Builder Modal -->
+    <div id="simpleMealModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Build Simple Meal</span>
+                <button class="close-modal" id="closeSimpleMealModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="simple-meal-info">
+                    <p>Create a meal by selecting individual products (meat, vegetables, carbs, etc.)</p>
+                </div>
+                
+                <div class="modal-field">
+                    <label for="simpleMealName">Meal Name (optional):</label>
+                    <input type="text" id="simpleMealName" placeholder="e.g., Chicken & Rice" maxlength="50">
+                </div>
+
+                <div class="modal-field">
+                    <label>Add Products to Meal:</label>
+                    <div class="simple-meal-search">
+                        <input type="text" id="simpleMealSearch" placeholder="Search products..." autocomplete="off">
+                        <button type="button" id="clearSimpleMealSearch">Clear</button>
+                    </div>
+                    <div class="product-categories">
+                        <!-- Categories will be populated dynamically -->
+                        <div id="simpleMealCategories"></div>
+                    </div>
+                </div>
+
+                <div class="modal-field">
+                    <label>Selected Products:</label>
+                    <div id="selectedProducts" class="selected-products">
+                        <!-- Selected products will appear here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelSimpleMeal">Cancel</button>
+                <button class="modal-btn primary" id="saveSimpleMeal">Save Meal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Selection Modal -->
+    <div id="recipeSelectionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Select Recipe</span>
+                <button class="close-modal" id="closeRecipeSelectionModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="recipe-selection-info">
+                    <p>Choose a recipe for <span id="mealTypeLabel">this meal</span></p>
+                </div>
+                
+                <div class="modal-field">
+                    <label>Search Recipes:</label>
+                    <div class="recipe-selection-search">
+                        <input type="text" id="recipeSelectionSearch" placeholder="Search by name, cuisine, ingredient..." autocomplete="off">
+                        <button type="button" id="clearRecipeSelectionSearch">Clear</button>
+                    </div>
+                </div>
+
+                <div class="modal-field">
+                    <label>Available Recipes:</label>
+                    <div id="recipeSelectionList" class="recipe-selection-list">
+                        <!-- Recipes will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelRecipeSelection">Cancel</button>
+                <button class="modal-btn primary" id="confirmRecipeSelection" disabled>Select Recipe</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Planning Modal -->
+    <div id="recipePlanningModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Plan Recipe</span>
+                <button class="close-modal" id="closeRecipePlanningModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="recipe-planning-info">
+                    <p>Plan <strong id="planningRecipeName">this recipe</strong> for a specific date and meal</p>
+                </div>
+                
+                <div class="modal-field">
+                    <label for="planningDate">Select Date:</label>
+                    <input type="date" id="planningDate" class="date-input">
+                </div>
+
+                <div class="modal-field">
+                    <label>Select Meal:</label>
+                    <div class="meal-type-selector">
+                        <label class="meal-option">
+                            <input type="radio" name="mealType" value="breakfast">
+                            <span class="meal-label">🌅 Breakfast</span>
+                        </label>
+                        <label class="meal-option">
+                            <input type="radio" name="mealType" value="lunch" checked>
+                            <span class="meal-label">☀️ Lunch</span>
+                        </label>
+                        <label class="meal-option">
+                            <input type="radio" name="mealType" value="dinner">
+                            <span class="meal-label">🌙 Dinner</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="planning-preview" id="planningPreview" style="display: none;">
+                        <p>This will schedule <strong id="previewRecipeName"></strong> for <strong id="previewMealType"></strong> on <strong id="previewDate"></strong></p>
+                        <div id="existingMealWarning" class="existing-meal-warning" style="display: none;">
+                            <p>⚠️ There's already a meal planned for this slot: <strong id="existingMealName"></strong></p>
+                            <p>Continuing will replace the existing meal.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelRecipePlanning">Cancel</button>
+                <button class="modal-btn primary" id="confirmRecipePlanning" disabled>Plan Recipe</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Recipes Modal -->
+    <div id="productRecipesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Recipes using <span id="selectedProductName"></span></span>
+                <button class="close-modal" id="closeProductRecipesModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="product-recipes-info">
+                    <p>Here are all the recipes that use this ingredient:</p>
+                </div>
+                
+                <div class="modal-field">
+                    <div id="productRecipesList" class="product-recipes-list">
+                        <!-- Recipes will be populated dynamically -->
+                    </div>
+                </div>
+                
+                <div id="noRecipesFound" class="no-recipes-message" style="display: none;">
+                    <div class="friendly-message">
+                        <span class="emoji">😊</span>
+                        <p>No recipes... yet ;-)</p>
+                        <p>💡 Why not be the first to create a recipe with this ingredient?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="closeProductRecipes">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shopping List Generation Modal -->
+    <div id="shoppingListModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Generate Shopping List</span>
+                <button class="close-modal" id="closeShoppingListModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="shopping-list-info">
+                    <p>Choose which meals to include in your shopping list</p>
+                </div>
+                
+                <div class="modal-field">
+                    <label>Time Range:</label>
+                    <div class="time-range-selector">
+                        <label class="time-option">
+                            <input type="radio" name="timeRange" value="future" checked>
+                            <span class="time-label">🔮 Future meals only (tomorrow onwards)</span>
+                        </label>
+                        <label class="time-option">
+                            <input type="radio" name="timeRange" value="todayFuture">
+                            <span class="time-label">⏰ Today's remaining meals + future</span>
+                        </label>
+                        <label class="time-option">
+                            <input type="radio" name="timeRange" value="all">
+                            <span class="time-label">📅 All planned meals this week</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="shopping-preview" id="shoppingPreview">
+                        <h4>Preview:</h4>
+                        <div id="mealsSummary"></div>
+                        <div id="ingredientsCount"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelShoppingList">Cancel</button>
+                <button class="modal-btn primary" id="confirmShoppingList">Generate Shopping List</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Creation Modal -->
+    <div id="recipeCreationModal" class="modal">
+        <div class="modal-content recipe-import-modal">
+            <div class="modal-header">
+                <span class="modal-title">➕ Create New Recipe</span>
+                <button class="close-modal" id="closeRecipeCreationModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="creation-info">
+                    <p><strong>Create a new recipe with image analysis:</strong></p>
+                    <small class="help-text">Import an image and extract recipe information automatically</small>
+                </div>
+                
+                <!-- Recipe Title -->
+                <div class="modal-field">
+                    <label for="newRecipeTitle">Recipe Title:</label>
+                    <input type="text" id="newRecipeTitle" class="recipe-title-input" placeholder="Enter recipe title">
+                </div>
+                
+                <!-- Recipe Image Preview -->
+                <div class="modal-field recipe-image-preview">
+                    <label>Recipe Image:</label>
+                    <div class="image-preview-container">
+                        <img id="newRecipeImagePreview" src="" alt="Recipe preview" style="display: none; max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div id="imagePreviewPlaceholder" class="image-placeholder">
+                            <span class="placeholder-text">📸 No image available</span>
+                            <button type="button" id="importImageBtn" class="import-btn">📁 Import Image</button>
+                            <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+                        </div>
+                        <!-- Extract button outside placeholder so it stays visible -->
+                        <div class="image-actions" style="margin-top: 10px; text-align: center;">
+                            <button type="button" id="extractFromImageBtn" class="extract-btn" style="display: none;">🤖 Extract Recipe Info</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ingredients Text Zone -->
+                <div class="modal-field">
+                    <label for="newRecipeIngredientsText">Ingredients (Text):</label>
+                    <textarea id="newRecipeIngredientsText" class="ingredients-text-input" rows="4" placeholder="Paste or type ingredients here (e.g., '2 cups flour, 3 eggs, 250ml milk...')"></textarea>
+                    <small class="field-help">💡 Paste ingredients from recipe image or type manually. We'll convert this to structured ingredients later.</small>
+                </div>
+                
+                <!-- Preparation/Method Zone -->
+                <div class="modal-field">
+                    <label for="newRecipePreparation">Preparation/Method:</label>
+                    <textarea id="newRecipePreparation" class="preparation-input" rows="6" placeholder="Enter cooking instructions and method steps..."></textarea>
+                </div>
+                
+                <!-- 🏠 LOCAL AI DEBUG: Original AI Response (Local Only) -->
+                <div id="aiDebugZone" class="modal-field ai-debug-zone" style="display: none; border: 2px solid #e74c3c; border-radius: 8px; padding: 10px; background: #fdf2f2; margin: 10px 0;">
+                    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 8px;">
+                        <label style="color: #c0392b; font-weight: bold;">🤖 Original AI Response (Debug)</label>
+                        <button id="toggleAiDebug" type="button" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">Hide</button>
+                    </div>
+                    <textarea id="originalAiResponse" readonly style="width: 100%; height: 200px; font-family: 'Courier New', monospace; font-size: 12px; background: #fff; border: 1px solid #ddd; padding: 8px; resize: vertical;" placeholder="Original AI response will appear here..."></textarea>
+                    <div style="font-size: 11px; color: #7f8c8d; margin-top: 5px;">
+                        💡 Use this to verify that AI parsing is working correctly. Compare parsed fields above with raw AI output.
+                    </div>
+                </div>
+                
+                <!-- Recipe Metadata -->
+                <div class="recipe-metadata-row">
+                    <div class="metadata-field">
+                        <label for="newRecipePrepTime">Prep Time:</label>
+                        <input type="text" id="newRecipePrepTime" placeholder="15 min">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="newRecipeCookTime">Cook Time:</label>
+                        <input type="text" id="newRecipeCookTime" placeholder="30 min">
+                    </div>
+                    <div class="metadata-field">
+                        <label for="newRecipeServings">Servings:</label>
+                        <input type="number" id="newRecipeServings" placeholder="4" min="1" max="20">
+                    </div>
+                </div>
+                
+                <!-- Enhanced Recipe Information -->
+                <div class="recipe-metadata-row">
+                    <div class="metadata-field">
+                        <label for="newRecipeAllergens">Allergens:</label>
+                        <input type="text" id="newRecipeAllergens" placeholder="gluten, lactose, noten">
+                    </div>
+                    <div class="metadata-field" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="newRecipeGlutenFree" style="margin: 0;">
+                        <label for="newRecipeGlutenFree" style="margin: 0;">🌾 Gluten Free</label>
+                    </div>
+                </div>
+                
+                <!-- Description Zone (was Comments & Notes) -->
+                <div class="modal-field">
+                    <label for="newRecipeDescription">Description:</label>
+                    <textarea id="newRecipeDescription" class="description-input" rows="3" placeholder="Short recipe description, tips, variations, or additional notes..."></textarea>
+                </div>
+                
+                <!-- Ingredients Section -->
+                <div class="modal-field">
+                    <label>Ingredients:</label>
+                    <div class="ingredients-editor" id="importedIngredientsEditor">
+                        <!-- Ingredients will be populated dynamically -->
+                    </div>
+                    <button type="button" class="add-ingredient-btn" id="addImportedIngredient">+ Add Ingredient</button>
+                </div>
+                
+                <!-- Import Status -->
+                <div class="import-status" id="importStatus">
+                    <div class="status-item">
+                        <span class="status-label">🔗 Linked to Products:</span>
+                        <span class="status-count" id="linkedCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">📝 New Ingredients:</span>
+                        <span class="status-count" id="newCount">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="cancelRecipeCreation">Cancel</button>
+                <button class="modal-btn primary" id="confirmRecipeCreation">💾 Save Recipe</button>
+            </div>
+        </div>
+    </div>
+    
+				<!-- Version manager -->
+		<script src="version-manager.js"></script>
+		
+		<!-- Local-Only AI Configuration (MAC ONLY - NOT FOR FIREBASE) -->
+                <script>
+                        // Only load local AI config when running locally
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '8080') {
+                                document.write('<script src="local-ai-config.js"><\/script>');
+                                document.write('<script src="extract-products.js"><\/script>');
+                        }
+                </script>
+		
+		<!-- Firebase Configuration (must load before firebase-secure.js) -->
+		<!-- Load Firebase config - production version for deployment, local for development -->
+		<script>
+		// Check if we're running locally (file:// protocol) or deployed (https://)
+		if (window.location.protocol === 'file:') {
+		  // Local development - load from secure config folder
+		  document.write('<script src="config/firebase-keys.js"><\/script>');
+		} else {
+		  // Production deployment - load from public production config
+		  document.write('<script src="firebase-production-config.js"><\/script>');
+		}
+		</script>
+		
+		<!-- Environment Configuration (must load first) -->
+		<script src="environment-config.js"></script>
+		
+		<!-- Secure Firebase config & initialization -->
+		<script src="firebase-secure.js"></script>
+		
+		<!-- Authentication (depends on Firebase being initialized) -->
+		<script src="auth.js?v=11.2.5-detection-test"></script>
+		
+		<!-- Core app logic -->
+		<script src="smart-image-system.js"></script>
+		
+		<!-- Firebase utilities (must load before modular components) -->
+        <script src="firebase-throttle.js"></script>
+		
+		<!-- Modular components -->
+		<script src="performance-monitor.js"></script>
+		<script src="shopping-list-real.js"></script>
+		<script src="pantry-manager-real.js"></script>
+		<script src="products-categories-real.js?v=6.0.4-import-fix&t=1755320000"></script>
+		<script src="recipes-real.js?v=11.0.0-debug&t=1755330000"></script>
+                <script src="recipe-timers.js?v=11.0.0&t=1755330000"></script>
+		<script src="menu-real.js"></script>
+		<script src="json-import-export-real.js"></script>
+		
+		<!-- Local-Only AI Recipe Export/Import (MAC ONLY) -->
+		<script>
+			if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '8080') {
+				document.write('<script src="recipe-ai-exporter.js"><\/script>');
+			}
+		</script>
+		<!-- <script src="products-manager.js"></script> DISABLED: Conflicts with products-categories-real.js -->
+                <script src="firebase-manager.js"></script>
+		<script src="firebase-sync-manager.js"></script>
+		<script src="firebase-simulator.js"></script>
+		<script src="firebase-call-monitor.js"></script>
+		
+		<script src="app.js?v=11.2.3-ios-debug"></script>
+		<script src="enhanced-recipe-renderer.js"></script>
+		
+		<!-- Legacy test scripts removed for cleaner console -->
+		
+		<!-- Optional Firebase utilities & debugging tools -->
+        <!-- firebase-simulator.js already loaded above -->
+		<!-- 
+		<!-- Debug scripts section cleaned up to eliminate 404 errors -->
+        -->
+
+    <!-- Recipe Timers Panel -->
+    <div id="timersPanel" class="timers-panel">
+        <div class="timers-header">
+            <h4>⏲️ Recipe Timers</h4>
+            <button id="toggleTimersPanel" class="timer-toggle-btn">−</button>
+        </div>
+        <div id="timersContainer" class="timers-container">
+            <div class="timer-controls">
+                <input type="number" id="timerMinutes" placeholder="Min" min="0" max="240" style="width: 60px;">
+                <input type="number" id="timerSeconds" placeholder="Sec" min="0" max="59" style="width: 60px;">
+                <input type="text" id="timerDescription" placeholder="Description..." style="width: 120px; margin-left: 5px;">
+                <button id="addTimerBtn" class="timer-btn">⏲️ Add Timer</button>
+            </div>
+            <div id="activeTimers" class="active-timers">
+                <!-- Active timers will be added here -->
+            </div>
+        </div>
+    </div>
+
+
+</body>
+</html>
