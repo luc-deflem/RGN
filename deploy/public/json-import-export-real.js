@@ -230,7 +230,7 @@ class RealJsonImportExportManager {
             if (window.realProductsCategoriesManager && typeof window.realProductsCategoriesManager.importProducts === 'function') {
                 console.log(`📦 Importing ${importData.allProducts.length} products using safe import method...`);
                 const result = window.realProductsCategoriesManager.importProducts(importData.allProducts);
-                
+
                 if (result.success) {
                     console.log(`✅ Products imported successfully: ${result.imported} products`);
                     console.log(`🛒 Shopping items available: ${result.shoppingItems}`);
@@ -239,9 +239,14 @@ class RealJsonImportExportManager {
                     throw new Error(`Product import failed: ${result.error}`);
                 }
             } else {
-                throw new Error('Products Manager safe import method not available');
+                console.warn('⚠️ Products Manager not available, falling back to direct assignment');
+                // Directly store products when manager isn't ready
+                const productsArray = Array.isArray(importData.allProducts) ? importData.allProducts : [];
+                this.app.allProducts = productsArray;
+                localStorage.setItem('allProducts', JSON.stringify(productsArray));
+                localStorage.setItem('allProducts_backup', JSON.stringify(productsArray));
             }
-            
+
             console.log(`📦 Imported ${importData.allProducts.length} master products`);
         }
         
@@ -256,8 +261,11 @@ class RealJsonImportExportManager {
         }
         
         if (importData.recipes) {
-            this.app.recipes = importData.recipes;
-            localStorage.setItem('recipes', JSON.stringify(importData.recipes));
+            if (window.realRecipesManager && typeof window.realRecipesManager.importData === 'function') {
+                window.realRecipesManager.importData(importData);
+            } else {
+                localStorage.setItem('recipes', JSON.stringify(importData.recipes));
+            }
             console.log(`🍳 Imported ${importData.recipes.length} recipes`);
         }
         
@@ -270,8 +278,17 @@ class RealJsonImportExportManager {
         // v6.0.0 UNIFIED: No need to sync filtered views - they're automatic now!
         // Shopping items and pantry items are now filtered views of the master products
         console.log('✅ Import complete - all data now available via unified architecture');
-        console.log(`🛒 Shopping items: ${this.app.shoppingItems.length} (via getter)`);
-        console.log(`🏠 Pantry items: ${this.app.allProducts.filter(p => p.pantry).length} (via filtered view)`);
+
+        // Safely log counts in case app properties aren't yet populated
+        const shoppingCount = Array.isArray(this.app?.shoppingItems)
+            ? this.app.shoppingItems.length
+            : 0;
+        const pantryCount = Array.isArray(this.app?.allProducts)
+            ? this.app.allProducts.filter(p => p.inPantry).length
+            : 0;
+
+        console.log(`🛒 Shopping items: ${shoppingCount} (via getter)`);
+        console.log(`🏠 Pantry items: ${pantryCount} (via filtered view)`);
         
         // v6.0.3 UNIFIED: Force re-render all displays after import
         console.log('🔄 Forcing display refresh after import...');
