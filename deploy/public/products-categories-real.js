@@ -778,6 +778,20 @@ class RealProductsCategoriesManager {
     }
 
     /**
+     * Find a product by name and category
+     * @param {string} name - Product name to match (case-insensitive)
+     * @param {string} category - Category ID to match
+     * @returns {Object|undefined} Matching product if found
+     */
+    findProductByNameAndCategory(name, category) {
+        if (!name || !category) return undefined;
+        return this.products.find(p =>
+            p.name?.toLowerCase() === name.toLowerCase() &&
+            p.category === category
+        );
+    }
+
+    /**
      * Get products by category
      */
     getProductsByCategory(categoryId) {

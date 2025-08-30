@@ -1341,7 +1341,7 @@ class RealShoppingListManager {
         } else {
             // No menu items found, show recipes instead
             // Find the actual product by name and category to get the correct product ID
-            if (window.app && window.app.findProductByNameAndCategory && window.app.showProductRecipes) {
+            if (window.realProductsCategoriesManager && window.app && window.app.showProductRecipes) {
                 // Get the shopping item to find name and category
                 // Try our own items first, then fall back to main app's shopping items
                 let shoppingItem = this.items.find(item => item.id === productId);
@@ -1351,7 +1351,7 @@ class RealShoppingListManager {
                 }
                 // console.log(`🔍 Looking for shopping item with ID ${productId}:`, shoppingItem);
                 if (shoppingItem) {
-                    const actualProduct = window.app.findProductByNameAndCategory(shoppingItem.name, shoppingItem.category);
+                    const actualProduct = window.realProductsCategoriesManager.findProductByNameAndCategory(shoppingItem.name, shoppingItem.category);
                     if (actualProduct) {
                         // console.log(`🔍 Found actual product ID ${actualProduct.id} for shopping item "${shoppingItem.name}" in category "${shoppingItem.category}"`);
                         // console.log(`📋 Product details:`, actualProduct);
