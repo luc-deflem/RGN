@@ -1504,6 +1504,97 @@ class RealRecipesManager {
         }
     }
 
+    /**
+     * Attach event listeners for recipe UI elements
+     */
+    attachEventListeners() {
+        this.initializeDOMElements();
+
+        if (this.recipeSearchInput) {
+            this.recipeSearchInput.addEventListener('input', () => {
+                const term = this.recipeSearchInput.value.trim();
+                this.renderRecipes(term);
+            });
+        }
+
+        if (this.clearRecipeSearchBtn) {
+            this.clearRecipeSearchBtn.addEventListener('click', () => {
+                if (this.recipeSearchInput) {
+                    this.recipeSearchInput.value = '';
+                }
+                this.renderRecipes('');
+            });
+        }
+
+        if (this.addRecipeBtn) {
+            this.addRecipeBtn.addEventListener('click', () => {
+                this.showRecipeCreationModal();
+            });
+        }
+
+        if (this.importRecipeBtn && this.recipeJsonFileInput) {
+            this.importRecipeBtn.addEventListener('click', () => this.recipeJsonFileInput.click());
+            this.recipeJsonFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const recipeObj = JSON.parse(reader.result);
+                        const existing = this.recipes || [];
+                        this.importData({ recipes: [...existing, recipeObj] });
+                        this.refreshDisplay?.();
+                    } catch (err) {
+                        console.error('Failed to import recipe JSON:', err);
+                        alert('Failed to import recipe JSON.');
+                    } finally {
+                        e.target.value = '';
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        const closeImport = document.getElementById('closeRecipeImportModal');
+        if (closeImport) {
+            closeImport.addEventListener('click', () => this.hideRecipeImportModal());
+        }
+
+        const cancelImport = document.getElementById('cancelRecipeImport');
+        if (cancelImport) {
+            cancelImport.addEventListener('click', () => this.hideRecipeImportModal());
+        }
+
+        const confirmImport = document.getElementById('confirmRecipeImport');
+        if (confirmImport) {
+            confirmImport.addEventListener('click', () => this.saveImportedRecipe());
+        }
+
+        const addIngredientBtn = document.getElementById('addImportedIngredient');
+        if (addIngredientBtn) {
+            addIngredientBtn.addEventListener('click', () => this.addIngredientRow());
+        }
+
+        if (this.cuisineFilter) {
+            this.cuisineFilter.addEventListener('change', () => this.applyRecipeFilters());
+        }
+        if (this.mainIngredientFilter) {
+            this.mainIngredientFilter.addEventListener('change', () => this.applyRecipeFilters());
+        }
+        if (this.seasonFilter) {
+            this.seasonFilter.addEventListener('change', () => this.applyRecipeFilters());
+        }
+        if (this.stockFilter) {
+            this.stockFilter.addEventListener('change', () => this.applyRecipeFilters());
+        }
+        if (this.clearFiltersBtn) {
+            this.clearFiltersBtn.addEventListener('click', () => this.clearRecipeFilters());
+        }
+        if (this.aiSuggestBtn) {
+            this.aiSuggestBtn.addEventListener('click', () => this.generateAIRecipes());
+        }
+    }
+
     // ----- DOM getters -----
     getRecipesList() {
         this.initializeDOMElements();
