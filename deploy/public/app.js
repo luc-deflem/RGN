@@ -129,7 +129,8 @@ class GroceryApp {
                     this.realRecipesManager.setIntegrations({
                         productsManager: this.productsCategoriesManager,
                         smartImageSystem: window.smartImageSystem,
-                        mealPlanningSystem: null // Will be connected when meal planning is modularized
+                        mealPlanningSystem: null, // Will be connected when meal planning is modularized
+                        jsonImportExportManager: this.jsonImportExportManager
                     });
                     
                 // Sync data from real module is handled through getter
@@ -873,8 +874,8 @@ class GroceryApp {
         
         // Recipe CSV events (single file)
         this.importRecipeCsvBtn.addEventListener('click', () => this.recipeCsvFileInput.click());
-        this.downloadRecipeCsvTemplateBtn.addEventListener('click', () => this.downloadRecipeCsvTemplate());
-        this.recipeCsvFileInput.addEventListener('change', (e) => this.handleRecipeCsvImport(e));
+        this.downloadRecipeCsvTemplateBtn.addEventListener('click', () => this.realRecipesManager.downloadRecipeCsvTemplate());
+        this.recipeCsvFileInput.addEventListener('change', (e) => this.realRecipesManager.handleRecipeCsvImport(e));
         
         // Recipe CSV events (two file)
         this.importTwoFileRecipesBtn.addEventListener('click', () => this.startTwoFileRecipeImport());
@@ -900,11 +901,11 @@ class GroceryApp {
         this.confirmProductEditBtn.addEventListener('click', () => window.realProductsCategoriesManager.confirmProductEdit());
 
         // Recipe edit modal events
-        this.closeRecipeModalBtn.addEventListener('click', () => this.closeRecipeEditModal());
-        this.cancelRecipeEditBtn.addEventListener('click', () => this.closeRecipeEditModal());
-        this.confirmRecipeEditBtn.addEventListener('click', () => this.confirmRecipeEdit());
+        this.closeRecipeModalBtn.addEventListener('click', () => this.realRecipesManager.closeRecipeEditModal());
+        this.cancelRecipeEditBtn.addEventListener('click', () => this.realRecipesManager.closeRecipeEditModal());
+        this.confirmRecipeEditBtn.addEventListener('click', () => this.realRecipesManager.confirmRecipeEdit());
         this.planRecipeFromModalBtn.addEventListener('click', () => this.planRecipeFromModal());
-        this.maximizeRecipeModalBtn.addEventListener('click', () => this.toggleMaximizeRecipeModal());
+        this.maximizeRecipeModalBtn.addEventListener('click', () => this.realRecipesManager.toggleMaximizeRecipeModal());
         // UNIFIED ARCHITECTURE: Add Ingredient button handled by recipes module
         // this.addIngredientBtn.addEventListener('click', () => this.addIngredientToRecipe());
         this.convertIngredientsBtn.addEventListener('click', () => this.convertIngredientsTextToStructured());
@@ -977,7 +978,7 @@ class GroceryApp {
 
         this.recipeEditModal.addEventListener('click', (e) => {
             if (e.target === this.recipeEditModal) {
-                this.closeRecipeEditModal();
+                this.realRecipesManager.closeRecipeEditModal();
             }
         });
 
@@ -1290,340 +1291,13 @@ class GroceryApp {
         }
     }
 
-    // Recipe Methods - Delegate to real recipes manager when available
-    addRecipe() {
-        const name = this.recipeNameInput?.value?.trim();
-        if (!name) {
-            this.recipeNameInput?.focus();
-            return false;
-        }
-
-        const result = this.realRecipesManager.addRecipe(name);
-        if (result) {
-            this.recipeNameInput.value = '';
-            this.recipeNameInput.focus();
-            this.render();
-            return result;
-        }
-        return false;
-    }
-
-    // NEW WORKFLOW: Open recipe creation modal
-    openRecipeCreationModal() {
-        // console.log('➕ [DEBUG] Opening recipe creation modal');
-
-        // Delegate to recipes module to show creation modal
-        this.realRecipesManager.showRecipeCreationModal();
-    }
-
-    // NEW FEATURE: Fetch recipe from URL - Conductor method with WebFetch integration
-    async fetchRecipeFromUrl() {
-        // console.log('🔍 [DEBUG] fetchRecipeFromUrl called!');
-        
-        const url = this.recipeUrlInput?.value?.trim();
-        if (!url) {
-            alert('Please enter a recipe URL');
-            return false;
-        }
-        
-        // Show loading state
-        const fetchBtn = document.getElementById('fetchRecipeBtn');
-        const originalText = fetchBtn?.textContent || '🔍 Fetch Recipe';
-        if (fetchBtn) {
-            fetchBtn.disabled = true;
-            fetchBtn.textContent = '🔄 Fetching...';
-        }
-        
-        try {
-            // Validate URL using the recipes module
-            if (!this.realRecipesManager.isValidRecipeUrl(url)) {
-                throw new Error('Please enter a valid recipe URL (AllRecipes, BBC Food, Food Network, etc.)');
-            }
-            
-            // Use WebFetch to get the recipe content
-            // console.log('🌐 Fetching recipe content from:', url);
-            
-            const prompt = `Extract recipe information from this webpage. Focus on:
-- Recipe title/name
-- Complete ingredients list with quantities and measurements
-- Step-by-step cooking instructions
-- Prep time, cook time, total time
-- Number of servings
-- Any recipe description or summary
-- Image URLs if available
-
-Format the response clearly with sections for easy parsing.`;
-
-            // This is where the WebFetch tool will be used by Claude Code
-            const webContent = await this.webFetchRecipe(url, prompt);
-            
-            if (!webContent) {
-                throw new Error('Failed to fetch recipe content from the webpage');
-            }
-            
-            // Process the WebFetch response using the recipes module
-            const recipeData = await this.realRecipesManager.processWebFetchResponse(webContent, url);
-            
-            if (!recipeData) {
-                throw new Error('Could not extract recipe data from the webpage');
-            }
-            
-            // Delegate to recipes module to show preview modal
-            // console.log('✅ Recipe data extracted, delegating to recipes module for preview modal');
-            
-            // Clear the URL input
-            if (this.recipeUrlInput) this.recipeUrlInput.value = '';
-            
-            // Delegate modal management to recipes module
-            const success = await this.realRecipesManager.showRecipeImportPreview(recipeData, url);
-            
-            if (success) {
-                // console.log('✅ Recipe import preview shown successfully');
-                return true;
-            } else {
-                throw new Error('Failed to show recipe import preview');
-            }
-            
-        } catch (error) {
-            console.error('❌ URL recipe fetch failed:', error);
-            alert(`❌ Failed to fetch recipe: ${error.message}\n\nPlease try a different recipe URL or add the recipe manually.`);
-            return false;
-            
-        } finally {
-            // Restore button state
-            if (fetchBtn) {
-                fetchBtn.disabled = false;
-                fetchBtn.textContent = originalText;
-            }
-        }
-    }
-    
-    // WebFetch integration method - uses Claude Code WebFetch tool
-    async webFetchRecipe(url, prompt) {
-        try {
-            // console.log('🌐 Using WebFetch tool for:', url);
-            
-            // Use the WebFetch tool available in Claude Code environment
-            // This will be replaced with actual WebFetch tool call by Claude
-            return await this.performWebFetch(url, prompt);
-            
-        } catch (error) {
-            console.error('❌ WebFetch error:', error);
-            throw new Error(`Failed to fetch webpage: ${error.message}`);
-        }
-    }
-    
-    // WebFetch integration - ready for Claude Code WebFetch tool
-    async performWebFetch(url, prompt) {
-        // console.log('🔧 WebFetch integration point for URL:', url);
-        
-        try {
-            // Try to use the actual WebFetch functionality if available
-            // This is designed to be enhanced by Claude Code's WebFetch tool
-            
-            // console.log('🌐 Attempting WebFetch tool integration...');
-            
-            // Note: This method will be replaced with actual WebFetch tool call by Claude Code
-            // The current implementation provides a realistic test case
-            
-            // Simulate network delay for realism
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Generate domain-specific test response for better testing
-            const hostname = new URL(url).hostname.toLowerCase();
-            let testRecipe;
-            
-            if (hostname.includes('allrecipes') || hostname.includes('recipe')) {
-                testRecipe = {
-                    title: 'Classic Chocolate Chip Cookies',
-                    ingredients: [
-                        '2 1/4 cups bloem',
-                        '1 tsp bakpoeder', 
-                        '1 tsp zout',
-                        '1 cup boter, zacht',
-                        '3/4 cup kristalsuiker',
-                        '3/4 cup bruine suiker',
-                        '2 grote eieren',
-                        '2 tsp vanille-extract',
-                        '2 cups chocoladeschilfers'
-                    ],
-                    instructions: '1. Verwarm oven voor op 190°C.\n2. Meng droge ingrediënten.\n3. Room boter en suikers.\n4. Klop eieren en vanille erdoor.\n5. Voeg droge ingrediënten toe.\n6. Roer chocoladeschilfers erdoor.\n7. Lepel op bakplaat.\n8. Bak 9-11 minuten.',
-                    prepTime: '15 minuten',
-                    cookTime: '10 minuten',
-                    servings: '48 koekjes'
-                };
-            } else if (hostname.includes('bbc') || hostname.includes('food')) {
-                // Extract likely recipe name from URL for more accurate testing
-                const urlPath = new URL(url).pathname;
-                const recipeName = urlPath.includes('honey') ? 'Honey Grilled Peaches and Mozzarella Salad' :
-                                 urlPath.includes('victoria') ? 'Victoria Sponge Cake' :
-                                 urlPath.includes('chocolate') ? 'Chocolate Brownies' :
-                                 'BBC Good Food Recipe';
-                
-                testRecipe = {
-                    title: recipeName,
-                    ingredients: [
-                        '4 rijpe perziken, gehalveerd en ontpit',
-                        '2 el honing',
-                        '150g verse mozzarella, gescheurd',
-                        '50g rucola',
-                        '2 el extra vergine olijfolie',
-                        '1 el balsamico azijn',
-                        '25g pijnboompitten, geroosterd',
-                        'Zout en peper naar smaak'
-                    ],
-                    instructions: '1. Verwarm de grill voor.\n2. Bestrijk perziken met honing.\n3. Grill perziken 3-4 minuten per kant.\n4. Verdeel rucola over borden.\n5. Leg warme perziken erop.\n6. Voeg mozzarella toe.\n7. Druppel olijfolie en balsamico erover.\n8. Garneer met pijnboompitten.\n9. Kruid met zout en peper.',
-                    prepTime: '10 minuten',
-                    cookTime: '8 minuten',
-                    servings: '4 porties'
-                };
-            } else {
-                testRecipe = {
-                    title: `Recept van ${hostname}`,
-                    ingredients: [
-                        '2 kopjes bloem',
-                        '1 kopje suiker',
-                        '2 eieren',
-                        '1/2 kopje boter',
-                        '1 tl vanille'
-                    ],
-                    instructions: '1. Meng ingrediënten.\n2. Bak tot gaar.',
-                    prepTime: '10 minuten',
-                    cookTime: '20 minuten',
-                    servings: '4 porties'
-                };
-            }
-            
-            const formattedResponse = `Recipe Title: ${testRecipe.title}
-
-Ingredients:
-${testRecipe.ingredients.map(ing => `- ${ing}`).join('\n')}
-
-Instructions:
-${testRecipe.instructions}
-
-Prep Time: ${testRecipe.prepTime}
-Cook Time: ${testRecipe.cookTime}
-Servings: ${testRecipe.servings}
-Description: Recipe extracted from ${url} using WebFetch integration`;
-
-            // console.log('✅ WebFetch integration test completed successfully');
-            // console.log('📋 Extracted recipe:', testRecipe.title);
-            
-            return formattedResponse;
-            
-        } catch (error) {
-            console.error('❌ WebFetch integration failed:', error);
-            throw new Error(`WebFetch integration failed: ${error.message}`);
-        }
-    }
-
-    editRecipe(recipeId) {
-        // console.log('🔧 editRecipe called with ID:', recipeId);
-        const recipe = this.realRecipesManager.getRecipeById(recipeId);
-        // console.log('🔧 Found recipe:', recipe);
-        if (recipe) {
-            // console.log('🔧 Opening recipe edit modal...');
-            this.openRecipeEditModal(recipe);
-            return recipe;
-        }
-        console.warn('⚠️ Recipe not found for ID:', recipeId);
-        return false;
-    }
-
-    deleteRecipe(recipeId) {
-        const recipe = this.realRecipesManager.getRecipeById(recipeId);
-        if (!recipe) return false;
-
-        if (confirm(`Are you sure you want to delete the recipe "${recipe.name}"?`)) {
-            const result = this.realRecipesManager.deleteRecipe(recipeId);
-            if (result) {
-                this.render();
-                return result;
-            }
-        }
-        return false;
-    }
 
     // Add recipe ingredients to shopping list
     addRecipeIngredientsToShopping(recipeId, servingMultiplier = 1) {
         return this.realRecipesManager.addRecipeIngredientsToShopping(recipeId, servingMultiplier);
     }
 
-    async openRecipeEditModal(recipe) {
-        // console.log('🔧 openRecipeEditModal called with recipe:', recipe.name);
-        // console.log('🔧 Modal element:', this.recipeEditModal);
-        // console.log('🔧 Name input element:', this.editRecipeName);
-        
-        this.currentEditingRecipe = recipe;
-        
-        // Populate modal fields
-        if (this.editRecipeName) {
-            this.editRecipeName.value = recipe.name;
-        } else {
-            console.error('❌ editRecipeName element not found!');
-        }
-        this.editRecipeDescription.value = recipe.description || '';
-        this.editRecipePreparation.value = recipe.instructions || recipe.preparation || '';
-        this.editRecipeIngredientsText.value = recipe.ingredientsText || '';
-        this.recipePersons.value = recipe.persons || 4;
-        
-        // Populate metadata fields (ensure backwards compatibility)
-        const metadata = recipe.metadata || {};
-        this.editRecipeCuisine.value = metadata.cuisine || '';
-        this.editRecipeMainIngredient.value = metadata.mainIngredient || '';
-        this.editRecipeSeason.value = metadata.season || '';
-        
-        // Populate image field
-        this.editRecipeImage.value = recipe.image || '';
-        this.updateImagePreview();
-        
-        // Populate recipe image header
-        console.log('🖼️ Calling updateRecipeImageHeader for recipe:', recipe.name, 'with image:', recipe.image);
-        if (this.realRecipesManager && typeof this.realRecipesManager.updateRecipeImageHeader === 'function') {
-            await this.realRecipesManager.updateRecipeImageHeader(recipe);
-        }
-        
-        // Reset maximize state
-        this.recipeEditModal.classList.remove('maximized');
-        this.maximizeRecipeModalBtn.innerHTML = '⛶';
-        this.maximizeRecipeModalBtn.title = 'Maximize';
-        
-        // Clear search form and reset all state
-        this.clearProductSearch();
-        this.resetRecipeCreationState();
-        
-        // Clear and populate ingredients list
-        this.currentRecipeIngredients = [...recipe.ingredients];
-        this.renderIngredientsInModal();
-        
-        // Reset any problematic styles that might have been set during product recipes modal fixes
-        this.recipeEditModal.style.removeProperty('visibility');
-        this.recipeEditModal.style.removeProperty('z-index');
-        this.recipeEditModal.style.display = 'block';
-    }
 
-    closeRecipeEditModal() {
-        this.recipeEditModal.style.display = 'none';
-        this.recipeEditModal.classList.remove('maximized');
-        this.currentEditingRecipe = null;
-        this.currentRecipeIngredients = [];
-        
-        // Check if we need to restore the product recipes modal
-        if (this.storedProductRecipesState && this.storedProductRecipesState.isOpen) {
-            // Switch back to products tab
-            this.switchTab('products');
-            
-            // Small delay to ensure tab switch completes, then restore the modal
-            setTimeout(() => {
-                if (this.storedProductRecipesState.productId) {
-                    this.showProductRecipes(this.storedProductRecipesState.productId);
-                }
-                // Clear the stored state
-                this.storedProductRecipesState = null;
-            }, 100);
-        }
-    }
 
     planRecipeFromModal() {
         if (!this.currentEditingRecipe) {
@@ -1635,71 +1309,11 @@ Description: Recipe extracted from ${url} using WebFetch integration`;
         const recipeId = this.currentEditingRecipe.id;
         
         // Close the recipe edit modal first
-        this.closeRecipeEditModal();
+        this.realRecipesManager.closeRecipeEditModal();
         
         // Open the recipe planning modal with the current recipe
         this.planRecipe(recipeId);
     }
-
-    toggleMaximizeRecipeModal() {
-        const modal = this.recipeEditModal;
-        const isMaximized = modal.classList.contains('maximized');
-        
-        if (isMaximized) {
-            modal.classList.remove('maximized');
-            this.maximizeRecipeModalBtn.innerHTML = '⛶';
-            this.maximizeRecipeModalBtn.title = 'Maximize';
-        } else {
-            modal.classList.add('maximized');
-            this.maximizeRecipeModalBtn.innerHTML = '🗗';
-            this.maximizeRecipeModalBtn.title = 'Restore';
-        }
-    }
-
-    confirmRecipeEdit() {
-        if (!this.currentEditingRecipe) return;
-
-        const recipe = this.currentEditingRecipe;
-        const newName = this.editRecipeName.value.trim();
-        const newDescription = this.editRecipeDescription.value.trim();
-        const newPreparation = this.editRecipePreparation.value.trim();
-
-        if (!newName) {
-            alert('Recipe name cannot be empty');
-            return;
-        }
-
-        // Check for duplicate names (excluding current recipe)
-        const duplicateRecipe = this.recipes.find(r =>
-            r.id !== recipe.id && r.name.toLowerCase() === newName.toLowerCase()
-        );
-
-        if (duplicateRecipe) {
-            alert('A recipe with this name already exists');
-            return;
-        }
-
-        const updates = {
-            name: newName,
-            instructions: newPreparation, // preparation maps to instructions
-            ingredients: [...this.currentRecipeIngredients],
-            image: this.editRecipeImage.value.trim(),
-            metadata: {
-                cuisine: this.editRecipeCuisine.value.trim(),
-                mainIngredient: this.editRecipeMainIngredient.value.trim(),
-                season: this.editRecipeSeason.value,
-                servings: parseInt(this.recipePersons.value) || 4
-            }
-        };
-
-        const result = this.realRecipesManager.editRecipe(recipe.id, updates);
-        if (result) {
-            this.closeRecipeEditModal();
-            this.render();
-        }
-    }
-
-
     addIngredientToRecipe() {
         const productId = this.selectedProductId.value;
         const quantity = parseFloat(this.ingredientQuantity.value);
@@ -4844,7 +4458,7 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         if (recipe) {
             // Small delay to ensure tab switch completes
             setTimeout(() => {
-                this.openRecipeEditModal(recipe);
+                this.realRecipesManager.openRecipeEditModal(recipeId);
             }, 100);
         }
     }
@@ -5645,35 +5259,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         }
     }
 
-    downloadRecipeCsvTemplate() {
-        console.log('🎼 Conductor: Delegating recipe CSV template download to module...');
-        if (this.jsonImportExportManager) {
-            return this.jsonImportExportManager.downloadRecipeCsvTemplate();
-        } else {
-            console.error('❌ JSON Import/Export manager not available');
-            alert('Recipe template functionality not available. Please refresh the page.');
-        }
-    }
-
-    handleRecipeCsvImport(event) {
-        console.log('🎼 Conductor: Delegating recipe CSV import to module...');
-        if (this.jsonImportExportManager) {
-            return this.jsonImportExportManager.handleRecipeCsvImport(event);
-        } else {
-            console.error('❌ JSON Import/Export manager not available');
-            alert('Recipe CSV import functionality not available. Please refresh the page.');
-        }
-    }
-
-    importCsvRecipes(csvData) {
-        console.log('🎼 Conductor: Delegating CSV recipes processing to module...');
-        if (this.jsonImportExportManager) {
-            return this.jsonImportExportManager.importCsvRecipes(csvData);
-        } else {
-            console.error('❌ JSON Import/Export manager not available');
-            alert('Recipe import functionality not available. Please refresh the page.');
-        }
-    }
 
     // ========== IMAGE SETTINGS METHODS ==========
 
@@ -5801,6 +5386,11 @@ Future Enhancement: This could connect to a real AI service to generate custom r
     /**
      * Pure coordination - delegate to appropriate modules
      */
+    fetchRecipeFromUrl() {
+        const url = this.recipeUrlInput?.value?.trim();
+        return this.realRecipesManager.fetchFromUrl(url);
+    }
+
     editRecipe(recipeId) {
         console.log('🎼 Conductor: Delegating recipe editing to recipes manager...');
         return this.realRecipesManager.openRecipeEditModal(recipeId);

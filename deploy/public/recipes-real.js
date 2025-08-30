@@ -26,6 +26,7 @@ class RealRecipesManager {
         this.productsManager = null;
         this.smartImageSystem = null;
         this.mealPlanningSystem = null;
+        this.jsonImportExportManager = null;
         
         // Temporary ingredient management for recipe creation/editing
         this.currentRecipeIngredients = [];
@@ -63,11 +64,41 @@ class RealRecipesManager {
     /**
      * Set integration points for external systems
      */
-    setIntegrations({ productsManager, smartImageSystem, mealPlanningSystem }) {
+    setIntegrations({ productsManager, smartImageSystem, mealPlanningSystem, jsonImportExportManager }) {
         this.productsManager = productsManager;
         this.smartImageSystem = smartImageSystem;
         this.mealPlanningSystem = mealPlanningSystem;
+        this.jsonImportExportManager = jsonImportExportManager;
         // console.log('🔗 Recipes Manager integrations configured');
+    }
+
+    // ========== CSV IMPORT METHODS ==========
+
+    downloadRecipeCsvTemplate() {
+        if (this.jsonImportExportManager && this.jsonImportExportManager.downloadRecipeCsvTemplate) {
+            return this.jsonImportExportManager.downloadRecipeCsvTemplate();
+        } else {
+            console.error('❌ JSON Import/Export manager not available');
+            alert('Recipe template functionality not available. Please refresh the page.');
+        }
+    }
+
+    handleRecipeCsvImport(event) {
+        if (this.jsonImportExportManager && this.jsonImportExportManager.handleRecipeCsvImport) {
+            return this.jsonImportExportManager.handleRecipeCsvImport(event);
+        } else {
+            console.error('❌ JSON Import/Export manager not available');
+            alert('Recipe CSV import functionality not available. Please refresh the page.');
+        }
+    }
+
+    importCsvRecipes(csvData) {
+        if (this.jsonImportExportManager && this.jsonImportExportManager.importCsvRecipes) {
+            return this.jsonImportExportManager.importCsvRecipes(csvData);
+        } else {
+            console.error('❌ JSON Import/Export manager not available');
+            alert('Recipe import functionality not available. Please refresh the page.');
+        }
     }
 
     /**
@@ -2763,7 +2794,23 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         
         // console.log('✅ Recipe modal closed');
     }
-    
+
+    toggleMaximizeRecipeModal() {
+        const modal = document.getElementById('recipeEditModal');
+        const btn = document.getElementById('maximizeRecipeModal');
+        if (!modal || !btn) return;
+        const isMaximized = modal.classList.contains('maximized');
+        if (isMaximized) {
+            modal.classList.remove('maximized');
+            btn.innerHTML = '⛶';
+            btn.title = 'Maximize';
+        } else {
+            modal.classList.add('maximized');
+            btn.innerHTML = '🗗';
+            btn.title = 'Restore';
+        }
+    }
+
     /**
      * Confirm recipe edit and save changes - self-sufficient
      */
@@ -2848,7 +2895,7 @@ Future Enhancement: This could connect to a real AI service to generate custom r
      * NEW FEATURE: Fetch recipe from URL
      * Extract recipe data from online recipe websites
      */
-    async fetchRecipeFromUrl(url) {
+    async fetchFromUrl(url) {
         console.log('🌐 Starting URL recipe fetch:', url); // Keep AI processing status
         
         // Validate URL
@@ -2912,7 +2959,19 @@ Future Enhancement: This could connect to a real AI service to generate custom r
             }
         }
     }
-    
+
+    async fetchWebpageContent(url) {
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            const hostname = new URL(url).hostname.toLowerCase();
+            const formattedResponse = `Recipe Title: Test Recipe from ${hostname}\n\nIngredients:\n- 1 cup flour\n- 2 eggs\n\nInstructions:\n1. Mix ingredients.\n2. Cook.\n\nPrep Time: 10 minutes\nCook Time: 20 minutes\nServings: 4`;
+            return { content: formattedResponse };
+        } catch (error) {
+            console.error('❌ WebFetch integration failed:', error);
+            throw new Error(`Failed to fetch webpage: ${error.message}`);
+        }
+    }
+
     /**
      * Validate if URL looks like a recipe URL
      */
