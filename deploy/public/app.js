@@ -421,23 +421,25 @@ class GroceryApp {
         this.clearProductFiltersBtn = document.getElementById('clearProductFiltersBtn');
         this.productAiSuggestBtn = document.getElementById('productAiSuggestBtn');
 
-        // Recipe elements
-        this.recipeSearchInput = document.getElementById('recipeSearchInput');
-        this.clearRecipeSearchBtn = document.getElementById('clearRecipeSearchBtn');
-        this.addRecipeBtn = document.getElementById('addRecipeBtn');
-        this.importRecipeBtn = document.getElementById('importRecipeBtn');
-        this.recipeJsonFileInput = document.getElementById('recipeJsonFile');
-        this.recipesList = document.getElementById('recipesList');
-        this.recipeCount = document.getElementById('recipeCount');
-        this.filteredRecipeCount = document.getElementById('filteredRecipeCount');
-        
-        // Recipe filter elements
-        this.cuisineFilter = document.getElementById('cuisineFilter');
-        this.mainIngredientFilter = document.getElementById('mainIngredientFilter');
-        this.seasonFilter = document.getElementById('seasonFilter');
-        this.stockFilter = document.getElementById('stockFilter');
-        this.clearFiltersBtn = document.getElementById('clearFiltersBtn');
-        this.aiSuggestBtn = document.getElementById('aiSuggestBtn');
+        // Recipe elements handled by RealRecipesManager
+        if (this.realRecipesManager?.initializeDOMElements) {
+            this.realRecipesManager.initializeDOMElements();
+        }
+        this.recipeSearchInput = this.realRecipesManager?.getRecipeSearchInput?.();
+        this.clearRecipeSearchBtn = this.realRecipesManager?.getClearRecipeSearchBtn?.();
+        this.addRecipeBtn = this.realRecipesManager?.getAddRecipeBtn?.();
+        this.importRecipeBtn = this.realRecipesManager?.getImportRecipeBtn?.();
+        this.recipeJsonFileInput = this.realRecipesManager?.getRecipeJsonFileInput?.();
+        this.recipesList = this.realRecipesManager?.getRecipesList?.();
+        this.recipeCount = this.realRecipesManager?.getRecipeCount?.();
+        this.filteredRecipeCount = this.realRecipesManager?.getFilteredRecipeCount?.();
+
+        this.cuisineFilter = this.realRecipesManager?.getCuisineFilter?.();
+        this.mainIngredientFilter = this.realRecipesManager?.getMainIngredientFilter?.();
+        this.seasonFilter = this.realRecipesManager?.getSeasonFilter?.();
+        this.stockFilter = this.realRecipesManager?.getStockFilter?.();
+        this.clearFiltersBtn = this.realRecipesManager?.getClearFiltersBtn?.();
+        this.aiSuggestBtn = this.realRecipesManager?.getAiSuggestBtn?.();
 
         // Meal planning elements
         this.prevWeekBtn = document.getElementById('prevWeekBtn');
