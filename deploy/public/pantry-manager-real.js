@@ -47,6 +47,9 @@ class RealPantryManager {
             console.warn('⚠️ Products manager not yet available - pantry will use filtered views when ready');
         }
         
+        // Set up UI event listeners
+        this.setupEventListeners();
+
         const pantryCount = this.getPantryProducts().length;
         // console.log(`🏠 Pantry Manager initialized - ${pantryCount} pantry items (unified v6.0.0)`);
         return this;
@@ -72,6 +75,52 @@ class RealPantryManager {
             return [];
         }
         return window.realProductsCategoriesManager.getAllProducts();
+    }
+
+    /**
+     * Set up pantry-specific UI event listeners
+     */
+    setupEventListeners() {
+        const addBtn = document.getElementById('addStandardBtn');
+        const itemInput = document.getElementById('standardItemInput');
+        const categorySelect = document.getElementById('standardCategorySelect');
+        const addAllUnstockedBtn = document.getElementById('addAllUnstocked');
+
+        if (addBtn && itemInput && categorySelect) {
+            const handleAdd = () => {
+                const itemName = itemInput.value.trim();
+                const category = categorySelect.value;
+
+                if (!itemName) {
+                    itemInput.focus();
+                    return;
+                }
+
+                const result = this.addItem(itemName, category);
+                if (result) {
+                    itemInput.value = '';
+                    itemInput.focus();
+                    this.refreshDisplay();
+                }
+            };
+
+            addBtn.addEventListener('click', handleAdd);
+            itemInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleAdd();
+                }
+            });
+        } else {
+            console.warn('⚠️ Pantry add controls not found - event listeners not attached');
+        }
+
+        if (addAllUnstockedBtn) {
+            addAllUnstockedBtn.addEventListener('click', () => {
+                if (window.realShoppingListManager && window.realShoppingListManager.addAllUnstockedToShopping) {
+                    window.realShoppingListManager.addAllUnstockedToShopping();
+                }
+            });
+        }
     }
 
     // v6.0.0 UNIFIED: Storage methods removed - all data managed by products manager
