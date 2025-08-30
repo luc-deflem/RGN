@@ -438,21 +438,6 @@ class GroceryApp {
         if (this.realRecipesManager?.initializeDOMElements) {
             this.realRecipesManager.initializeDOMElements();
         }
-        this.recipeSearchInput = this.realRecipesManager?.getRecipeSearchInput?.();
-        this.clearRecipeSearchBtn = this.realRecipesManager?.getClearRecipeSearchBtn?.();
-        this.addRecipeBtn = this.realRecipesManager?.getAddRecipeBtn?.();
-        this.importRecipeBtn = this.realRecipesManager?.getImportRecipeBtn?.();
-        this.recipeJsonFileInput = this.realRecipesManager?.getRecipeJsonFileInput?.();
-        this.recipesList = this.realRecipesManager?.getRecipesList?.();
-        this.recipeCount = this.realRecipesManager?.getRecipeCount?.();
-        this.filteredRecipeCount = this.realRecipesManager?.getFilteredRecipeCount?.();
-
-        this.cuisineFilter = this.realRecipesManager?.getCuisineFilter?.();
-        this.mainIngredientFilter = this.realRecipesManager?.getMainIngredientFilter?.();
-        this.seasonFilter = this.realRecipesManager?.getSeasonFilter?.();
-        this.stockFilter = this.realRecipesManager?.getStockFilter?.();
-        this.clearFiltersBtn = this.realRecipesManager?.getClearFiltersBtn?.();
-        this.aiSuggestBtn = this.realRecipesManager?.getAiSuggestBtn?.();
 
         // Meal planning elements
         this.prevWeekBtn = document.getElementById('prevWeekBtn');
@@ -1248,20 +1233,6 @@ class GroceryApp {
     clearProductSearch() {
         return this.productsManager.clearProductSearch();
     }
-
-    searchRecipes() {
-        const searchTerm = this.recipeSearchInput?.value?.trim() || '';
-        // console.log('🔍 Recipe search triggered, search term:', searchTerm);
-        this.renderRecipes(searchTerm);
-    }
-
-    clearRecipeSearch() {
-        if (this.recipeSearchInput) {
-            this.recipeSearchInput.value = '';
-            this.searchRecipes(); // Re-render to show all recipes
-        }
-    }
-
 
     // Add recipe ingredients to shopping list
     addRecipeIngredientsToShopping(recipeId, servingMultiplier = 1) {
@@ -3575,8 +3546,8 @@ class GroceryApp {
         console.log('✅ Products list rendered with', productsToRender.length, 'of', filteredProducts.length, 'products');
     }
 
-    renderRecipes(searchTerm = '') {
-        this.realRecipesManager.renderRecipes(searchTerm);
+    renderRecipes(searchTerm = '', filters = null) {
+        this.realRecipesManager.renderRecipes(searchTerm, filters);
     }
 
     generateAIRecipes() {
