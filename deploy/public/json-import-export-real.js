@@ -270,8 +270,17 @@ class RealJsonImportExportManager {
         // v6.0.0 UNIFIED: No need to sync filtered views - they're automatic now!
         // Shopping items and pantry items are now filtered views of the master products
         console.log('✅ Import complete - all data now available via unified architecture');
-        console.log(`🛒 Shopping items: ${this.app.shoppingItems.length} (via getter)`);
-        console.log(`🏠 Pantry items: ${this.app.allProducts.filter(p => p.pantry).length} (via filtered view)`);
+
+        // Safely log counts in case app properties aren't yet populated
+        const shoppingCount = Array.isArray(this.app?.shoppingItems)
+            ? this.app.shoppingItems.length
+            : 0;
+        const pantryCount = Array.isArray(this.app?.allProducts)
+            ? this.app.allProducts.filter(p => p.pantry).length
+            : 0;
+
+        console.log(`🛒 Shopping items: ${shoppingCount} (via getter)`);
+        console.log(`🏠 Pantry items: ${pantryCount} (via filtered view)`);
         
         // v6.0.3 UNIFIED: Force re-render all displays after import
         console.log('🔄 Forcing display refresh after import...');
