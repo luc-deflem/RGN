@@ -1202,7 +1202,7 @@ class RealRecipesManager {
     /**
      * Search recipes by multiple criteria
      */
-    searchRecipes(query, filters = {}) {
+    searchRecipesData(query, filters = {}) {
         if (!query && Object.keys(filters).length === 0) {
             return this.recipes;
         }
@@ -1773,14 +1773,14 @@ class RealRecipesManager {
     /**
      * Render recipes tab (main entry point)
      */
-    renderRecipes(searchTerm = '') {
+    renderRecipes(searchTerm = '', filters = null) {
         // Re-initialize DOM elements if needed
         this.initializeDOMElements();
-        
+
         // Populate filter dropdowns with current recipe data
         this.populateFilterDropdowns();
-        
-        this.renderRecipesList(searchTerm);
+
+        this.renderRecipesList(searchTerm, filters);
     }
 
     /**
@@ -1845,6 +1845,18 @@ class RealRecipesManager {
         }
     }
 
+    searchRecipes() {
+        const searchTerm = this.recipeSearchInput?.value?.trim() || '';
+        this.renderRecipes(searchTerm);
+    }
+
+    clearRecipeSearch() {
+        if (this.recipeSearchInput) {
+            this.recipeSearchInput.value = '';
+        }
+        this.renderRecipes('');
+    }
+
     /**
      * Attach event listeners for recipe UI elements
      */
@@ -1852,19 +1864,11 @@ class RealRecipesManager {
         this.initializeDOMElements();
 
         if (this.recipeSearchInput) {
-            this.recipeSearchInput.addEventListener('input', () => {
-                const term = this.recipeSearchInput.value.trim();
-                this.renderRecipes(term);
-            });
+            this.recipeSearchInput.addEventListener('input', () => this.searchRecipes());
         }
 
         if (this.clearRecipeSearchBtn) {
-            this.clearRecipeSearchBtn.addEventListener('click', () => {
-                if (this.recipeSearchInput) {
-                    this.recipeSearchInput.value = '';
-                }
-                this.renderRecipes('');
-            });
+            this.clearRecipeSearchBtn.addEventListener('click', () => this.clearRecipeSearch());
         }
 
         if (this.addRecipeBtn) {
@@ -2010,18 +2014,18 @@ class RealRecipesManager {
     /**
      * Render recipes list with filtering and search
      */
-    renderRecipesList(searchTerm = '') {
+    renderRecipesList(searchTerm = '', filters = null) {
         this.initializeDOMElements();
-        
+
         let recipesToShow = this.recipes;
-        
+
         // Apply search if provided
         if (searchTerm) {
-            recipesToShow = this.searchRecipes(searchTerm);
+            recipesToShow = this.searchRecipesData(searchTerm);
         }
-        
-        // Get active global filters
-        const activeFilters = this.getActiveFilters();
+
+        // Determine active global filters
+        const activeFilters = filters || this.getActiveFilters();
         const hasFilters = Object.keys(activeFilters).length > 0;
         
         // Update clear filters button visibility
@@ -2195,7 +2199,8 @@ class RealRecipesManager {
      */
     applyRecipeFilters() {
         const searchTerm = this.recipeSearchInput ? this.recipeSearchInput.value.toLowerCase().trim() : '';
-        this.renderRecipesList(searchTerm);
+        const filters = this.getActiveFilters();
+        this.renderRecipes(searchTerm, filters);
     }
 
     /**
@@ -2218,7 +2223,7 @@ class RealRecipesManager {
         
         // Re-render with current search term but no filters
         const searchTerm = this.recipeSearchInput ? this.recipeSearchInput.value.toLowerCase().trim() : '';
-        this.renderRecipesList(searchTerm);
+        this.renderRecipes(searchTerm, {});
     }
 
     /**
