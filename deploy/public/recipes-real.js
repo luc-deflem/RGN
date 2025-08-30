@@ -35,6 +35,9 @@ class RealRecipesManager {
         this.pendingRecipeInfoData = null;
         this.pendingRecipeIngredientsData = null;
         
+        // State for meal planning modal
+        this.currentPlanningRecipe = null;
+
         // console.log('🍳 Real Recipes Manager constructed');
     }
 
@@ -428,32 +431,311 @@ class RealRecipesManager {
      */
     planRecipe(recipeId) {
         const recipe = this.getRecipeById(recipeId);
-        if (!recipe) {
-            console.error(`❌ Recipe with id ${recipeId} not found`);
-            return false;
-        }
-        
-        // console.log(`📅 Planning recipe: ${recipe.name}`);
-        // console.log(`🔍 Debug: window.app available?`, !!window.app);
-        // console.log(`🔍 Debug: window.app.planRecipe available?`, !!(window.app && window.app.planRecipe));
-        
-        // UNIFIED ARCHITECTURE FIX: Delegate to app's actual meal planning modal (NOT the delegation method)
-        if (window.app && window.app.planRecipe) {
-            // console.log(`🔄 Calling app.planRecipe() directly for recipe: ${recipe.name}`);
-            try {
-                // Call the ACTUAL modal method (line 3244), not the delegation method
-                return window.app.planRecipe(recipeId);
-            } catch (error) {
-                console.error('❌ Error calling app.planRecipe():', error);
-                alert(`Error opening meal planning for "${recipe.name}": ${error.message}`);
-                return false;
+        if (!recipe) return;
+
+        // Store the recipe being planned
+        this.currentPlanningRecipe = recipe;
+
+        // Create a working recipe planning modal
+        const planningModal = document.createElement('div');
+        planningModal.innerHTML = `
+            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">
+                <div style="background: white; padding: 30px; border-radius: 10px; width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #333;">Plan Recipe: ${recipe.name}</h3>
+                        <button id="closePlanningModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 5px;">&times;</button>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Date:</label>
+                        <input type="date" id="workingPlanningDate" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Select Meal Type:</label>
+                        <div style="display: flex; gap: 15px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="radio" name="workingMealType" value="breakfast" style="margin: 0;">
+                                <span>🌅 Breakfast</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="radio" name="workingMealType" value="lunch" style="margin: 0;" checked>
+                                <span>🌞 Lunch</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                <input type="radio" name="workingMealType" value="dinner" style="margin: 0;">
+                                <span>🌙 Dinner</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="workingPlanningPreview" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; display: none;">
+                        <span id="workingPreviewText">Select date and meal type</span>
+                        <div id="workingExistingMealWarning" style="margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; display: none;">
+                            ⚠️ <strong>Warning:</strong> <span id="workingExistingMealName"></span> is already planned for this slot.
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="cancelPlanning" style="padding: 10px 20px; border: 1px solid #95a5a6; background: #ecf0f1; color: #7f8c8d; border-radius: 5px; cursor: pointer;">Cancel</button>
+                        <button id="confirmPlanning" style="padding: 10px 20px; border: none; background: #28a745; color: white; border-radius: 5px; cursor: pointer;">Plan Recipe</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update preview function
+        const updatePreview = () => {
+            const dateInput = planningModal.querySelector('#workingPlanningDate');
+            const mealTypeInputs = planningModal.querySelectorAll('input[name="workingMealType"]');
+            const selectedMealType = Array.from(mealTypeInputs).find(input => input.checked)?.value;
+
+            if (dateInput.value && selectedMealType) {
+                const date = new Date(dateInput.value);
+                const formattedDate = date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+                planningModal.querySelector('#workingPreviewText').innerHTML = `
+                    <strong>${recipe.name}</strong> for <strong>${selectedMealType}</strong> on <strong>${formattedDate}</strong>
+                `;
+
+                // Check for existing meal conflict
+                this.checkMealConflict(date, selectedMealType, planningModal);
             }
+        };
+
+        // Add event listeners
+        planningModal.querySelector('#closePlanningModal').onclick = () => {
+            document.body.removeChild(planningModal);
+        };
+
+        planningModal.querySelector('#cancelPlanning').onclick = () => {
+            document.body.removeChild(planningModal);
+        };
+
+        planningModal.querySelector('#confirmPlanning').onclick = () => {
+            const dateInput = planningModal.querySelector('#workingPlanningDate');
+            const mealTypeInputs = planningModal.querySelectorAll('input[name="workingMealType"]');
+            const selectedMealType = Array.from(mealTypeInputs).find(input => input.checked)?.value;
+
+            if (dateInput.value && selectedMealType) {
+                const selectedDate = new Date(dateInput.value);
+                this.confirmRecipePlanningWithParams(selectedDate, selectedMealType);
+                document.body.removeChild(planningModal);
+            } else {
+                alert('Please select both date and meal type');
+            }
+        };
+
+        // Add change listeners for preview updates
+        planningModal.querySelector('#workingPlanningDate').onchange = updatePreview;
+        planningModal.querySelectorAll('input[name="workingMealType"]').forEach(input => {
+            input.onchange = updatePreview;
+        });
+
+        // Click outside to close
+        planningModal.onclick = (e) => {
+            if (e.target === planningModal) {
+                document.body.removeChild(planningModal);
+            }
+        };
+
+        document.body.appendChild(planningModal);
+
+        // Initial preview update
+        updatePreview();
+    }
+
+    /**
+     * Check if a meal slot already has a meal
+     */
+    checkMealConflict(selectedDate, mealType, modalElement) {
+        if (!window.app) return;
+        const weekStart = window.app.getWeekStart ? window.app.getWeekStart(selectedDate) : new Date(selectedDate);
+        const weekKey = window.app.getWeekKey ? window.app.getWeekKey(weekStart) : weekStart.toISOString().split('T')[0];
+
+        const dayIndex = (selectedDate.getDay() + 1) % 7;
+        const existingMeal = window.app.mealPlans?.[weekKey]?.[dayIndex]?.[mealType];
+        const warningElement = modalElement.querySelector('#workingExistingMealWarning');
+        const mealNameElement = modalElement.querySelector('#workingExistingMealName');
+
+        if (existingMeal) {
+            let mealName = 'Unknown meal';
+            if (existingMeal.type === 'recipe') {
+                const recipe = this.recipes.find(r => r.id === existingMeal.id);
+                mealName = recipe ? recipe.name : 'Unknown recipe';
+            } else if (existingMeal.type === 'simple') {
+                mealName = existingMeal.name || 'Simple meal';
+            }
+            mealNameElement.textContent = mealName;
+            warningElement.style.display = 'block';
         } else {
-            console.error('❌ App meal planning system not available');
-            console.error('❌ window.app:', window.app); // Keep critical error
-            console.error('❌ window.app.planRecipe:', window.app ? window.app.planRecipe : 'window.app is null'); // Keep critical error
-            alert(`Recipe "${recipe.name}" ready for meal planning\n\nMeal planning system not available.`);
-            return false;
+            warningElement.style.display = 'none';
+        }
+    }
+
+    /**
+     * Finalize planning with selected parameters
+     */
+    confirmRecipePlanningWithParams(selectedDate, mealType) {
+        if (!window.app || !this.currentPlanningRecipe) return;
+
+        const weekStart = window.app.getWeekStart ? window.app.getWeekStart(selectedDate) : new Date(selectedDate);
+        const dayIndex = (selectedDate.getDay() + 1) % 7;
+        const originalWeekStart = window.app.currentWeekStart;
+        window.app.currentWeekStart = weekStart;
+
+        const mealData = { type: 'recipe', id: this.currentPlanningRecipe.id };
+        window.app.setMeal(dayIndex, mealType, mealData);
+
+        if (originalWeekStart && originalWeekStart.getTime() !== weekStart.getTime()) {
+            window.app.currentWeekStart = originalWeekStart;
+            if (window.app.renderMealCalendar) {
+                window.app.renderMealCalendar();
+            }
+        }
+
+        const dateOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+        const formattedDate = selectedDate.toLocaleDateString('en-US', dateOptions);
+        alert(`✅ Successfully planned "${this.currentPlanningRecipe.name}" for ${mealType} on ${formattedDate}!`);
+        this.currentPlanningRecipe = null;
+    }
+
+    /**
+     * Open modal to select recipe for meal slot
+     */
+    openSelectionModal(dayIndex, mealType) {
+        if (this.recipes.length === 0) {
+            alert('No recipes available. Add some recipes first!');
+            return;
+        }
+
+        // Create a working recipe selection modal
+        const workingRecipeModal = document.createElement('div');
+        workingRecipeModal.id = 'workingRecipeModal';
+        workingRecipeModal.innerHTML = `
+            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center;">
+                <div style="background: white; border-radius: 10px; width: 600px; max-height: 80vh; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+                    <!-- Fixed Header -->
+                    <div style="padding: 30px 30px 20px 30px; border-bottom: 1px solid #eee; flex-shrink: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="margin: 0; color: #333;">Select Recipe for ${mealType}</h3>
+                            <button id="closeWorkingRecipeModal" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 5px;">&times;</button>
+                        </div>
+
+                        <div>
+                            <input type="text" id="workingRecipeSearch" placeholder="Search recipes..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;">
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Recipe List -->
+                    <div id="workingRecipeList" style="flex: 1; overflow-y: auto; padding: 0; border: none; min-height: 200px; max-height: 400px;">
+                        ${this.generateRecipeListHTML()}
+                    </div>
+
+                    <!-- Fixed Footer -->
+                    <div style="padding: 20px 30px 30px 30px; border-top: 1px solid #eee; flex-shrink: 0; background: #f8f9fa; border-radius: 0 0 10px 10px;">
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button id="cancelWorkingRecipeSelection" style="padding: 10px 20px; border: 1px solid #95a5a6; background: #ecf0f1; color: #7f8c8d; border-radius: 5px; cursor: pointer;">Cancel</button>
+                            <button id="confirmWorkingRecipeSelection" style="padding: 10px 20px; border: none; background: #3498db; color: white; border-radius: 5px; cursor: pointer;" disabled>Select Recipe</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let selectedRecipeId = null;
+
+        // Add search functionality
+        const searchInput = workingRecipeModal.querySelector('#workingRecipeSearch');
+        searchInput.oninput = (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const recipeItems = workingRecipeModal.querySelectorAll('.working-recipe-item');
+            recipeItems.forEach(item => {
+                const recipeName = item.dataset.recipeName.toLowerCase();
+                const isVisible = recipeName.includes(searchTerm);
+                item.style.display = isVisible ? 'block' : 'none';
+            });
+        };
+
+        // Add recipe selection functionality
+        workingRecipeModal.addEventListener('click', (e) => {
+            const recipeItem = e.target.closest('.working-recipe-item');
+            if (recipeItem) {
+                workingRecipeModal.querySelectorAll('.working-recipe-item').forEach(item => {
+                    item.style.backgroundColor = '';
+                    item.style.borderColor = '#ddd';
+                });
+
+                recipeItem.style.backgroundColor = '#e3f2fd';
+                recipeItem.style.borderColor = '#2196f3';
+                selectedRecipeId = recipeItem.dataset.recipeId;
+
+                const confirmBtn = workingRecipeModal.querySelector('#confirmWorkingRecipeSelection');
+                confirmBtn.disabled = false;
+                confirmBtn.style.background = '#2196f3';
+            }
+        });
+
+        // Add event listeners
+        workingRecipeModal.querySelector('#closeWorkingRecipeModal').onclick = () => {
+            document.body.removeChild(workingRecipeModal);
+        };
+
+        workingRecipeModal.querySelector('#cancelWorkingRecipeSelection').onclick = () => {
+            document.body.removeChild(workingRecipeModal);
+        };
+
+        workingRecipeModal.querySelector('#confirmWorkingRecipeSelection').onclick = () => {
+            if (selectedRecipeId) {
+                document.body.removeChild(workingRecipeModal);
+                this.confirmRecipeToSlot(selectedRecipeId, dayIndex, mealType);
+            }
+        };
+
+        // Click outside to close
+        workingRecipeModal.onclick = (e) => {
+            if (e.target === workingRecipeModal) {
+                document.body.removeChild(workingRecipeModal);
+            }
+        };
+
+        document.body.appendChild(workingRecipeModal);
+    }
+
+    generateRecipeListHTML() {
+        if (this.recipes.length === 0) {
+            return '<div style="padding: 20px; text-align: center; color: #666;">No recipes available. Add some recipes first!</div>';
+        }
+
+        return this.recipes.map(recipe => `
+            <div class="working-recipe-item" data-recipe-id="${recipe.id}" data-recipe-name="${recipe.name}"
+                 style="padding: 15px; border: 1px solid #ddd; margin-bottom: 10px; border-radius: 5px; cursor: pointer; transition: all 0.2s;">
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">${recipe.name}</div>
+                ${recipe.description ? `<div style="color: #666; font-size: 14px; margin-bottom: 5px;">${recipe.description}</div>` : ''}
+                <div style="font-size: 12px; color: #999;">
+                    ${recipe.cuisine ? `${recipe.cuisine} • ` : ''}
+                    ${recipe.mainIngredient ? `${recipe.mainIngredient} • ` : ''}
+                    ${recipe.persons ? `${recipe.persons} persons` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    confirmRecipeToSlot(recipeId, dayIndex, mealType) {
+        const numericRecipeId = typeof recipeId === 'string' ? parseFloat(recipeId) : recipeId;
+        const recipe = this.recipes.find(r => r.id === numericRecipeId);
+        if (!recipe) {
+            alert('Recipe not found!');
+            return;
+        }
+
+        if (window.app && window.app.setMeal) {
+            window.app.setMeal(dayIndex, mealType, {
+                type: 'recipe',
+                id: numericRecipeId
+            });
+        } else {
+            alert('Meal planning system not available');
         }
     }
 
