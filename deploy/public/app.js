@@ -132,8 +132,7 @@ class GroceryApp {
                         mealPlanningSystem: null // Will be connected when meal planning is modularized
                     });
                     
-                    // Sync data from real module
-                    this.recipes = this.realRecipesManager.getAllRecipes();
+                // Sync data from real module is handled through getter
                 }
                 
                 // Make globally available for HTML onclick handlers
@@ -217,20 +216,15 @@ class GroceryApp {
         // REMOVED: this.standardItems - managed by pantry-manager-real.js
         // v6.0.0 UNIFIED: No local data arrays - using delegation getters
         // Categories are now accessed via get categories() getter that delegates to Products Manager
-        this.recipes = this.realRecipesManager ? this.realRecipesManager.getAllRecipes() : [];
         this.mealPlans = this.loadMealPlans();
-        
+
         // Load image settings
         this.imagesFolderPathValue = this.loadImageSettings();
         this.useFirebaseImages = this.loadFirebaseImageSetting();
-        
+
         // Initialize current week (start of current week)
         this.currentWeekStart = this.getWeekStart(new Date());
-        
-        // Two-file recipe import state
-        this.pendingRecipeInfoData = null;
-        this.pendingRecipeIngredientsData = null;
-        
+
         this.initializeElements();
         this.attachEventListeners();
 
@@ -327,6 +321,16 @@ class GroceryApp {
     }
 
     /**
+     * v6.0.1 UNIFIED: Get recipes (delegates to recipes manager)
+     */
+    get recipes() {
+        if (this.realRecipesManager) {
+            return this.realRecipesManager.getAllRecipes();
+        }
+        return [];
+    }
+
+    /**
      * v6.0.0 UNIFIED: Get all products method (delegates to products manager)
      */
     getAllProducts() {
@@ -338,6 +342,13 @@ class GroceryApp {
      */
     getShoppingItems() {
         return this.shoppingItems;
+    }
+
+    /**
+     * v6.0.1 UNIFIED: Get all recipes method (delegates to recipes manager)
+     */
+    getAllRecipes() {
+        return this.recipes;
     }
 
 
@@ -1289,7 +1300,6 @@ class GroceryApp {
 
         const result = this.realRecipesManager.addRecipe(name);
         if (result) {
-            this.recipes = this.realRecipesManager.getAllRecipes();
             this.recipeNameInput.value = '';
             this.recipeNameInput.focus();
             this.render();
@@ -1528,7 +1538,6 @@ Description: Recipe extracted from ${url} using WebFetch integration`;
         if (confirm(`Are you sure you want to delete the recipe "${recipe.name}"?`)) {
             const result = this.realRecipesManager.deleteRecipe(recipeId);
             if (result) {
-                this.recipes = this.realRecipesManager.getAllRecipes();
                 this.render();
                 return result;
             }
@@ -1685,7 +1694,6 @@ Description: Recipe extracted from ${url} using WebFetch integration`;
 
         const result = this.realRecipesManager.editRecipe(recipe.id, updates);
         if (result) {
-            this.recipes = this.realRecipesManager.getAllRecipes();
             this.closeRecipeEditModal();
             this.render();
         }
@@ -5378,7 +5386,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
 
     saveRecipes() {
         this.realRecipesManager.saveRecipes();
-        this.recipes = this.realRecipesManager.getAllRecipes();
     }
 
     getSampleRecipes() {

@@ -29,6 +29,10 @@ class RealRecipesManager {
         
         // Temporary ingredient management for recipe creation/editing
         this.currentRecipeIngredients = [];
+
+        // Two-file recipe import state
+        this.pendingRecipeInfoData = null;
+        this.pendingRecipeIngredientsData = null;
         
         // console.log('🍳 Real Recipes Manager constructed');
     }
@@ -64,6 +68,30 @@ class RealRecipesManager {
         this.smartImageSystem = smartImageSystem;
         this.mealPlanningSystem = mealPlanningSystem;
         // console.log('🔗 Recipes Manager integrations configured');
+    }
+
+    /**
+     * Two-file recipe import state management
+     */
+    setPendingRecipeInfoData(data) {
+        this.pendingRecipeInfoData = data;
+    }
+
+    getPendingRecipeInfoData() {
+        return this.pendingRecipeInfoData;
+    }
+
+    setPendingRecipeIngredientsData(data) {
+        this.pendingRecipeIngredientsData = data;
+    }
+
+    getPendingRecipeIngredientsData() {
+        return this.pendingRecipeIngredientsData;
+    }
+
+    clearPendingRecipeImportData() {
+        this.pendingRecipeInfoData = null;
+        this.pendingRecipeIngredientsData = null;
     }
 
     // ========== CORE RECIPE MANAGEMENT ==========
