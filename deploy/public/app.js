@@ -104,10 +104,6 @@ class GroceryApp {
                         }
                     }, 100);
                     
-                    // DEBUG: Check module states after initialization
-                    setTimeout(() => {
-                        this.debugModuleStates();
-                    }, 500);
                 }
             } catch (error) {
                 console.error('❌ Products-Categories manager initialization failed:', error);
@@ -577,7 +573,6 @@ class GroceryApp {
         
         // Image settings elements
         this.imagesFolderPath = document.getElementById('imagesFolderPath');
-        this.testImagePathBtn = document.getElementById('testImagePathBtn');
         // Firebase image elements - handled by Firebase Sync Manager
         
         this.maximizeRecipeModalBtn = document.getElementById('maximizeRecipeModal');
@@ -799,10 +794,6 @@ class GroceryApp {
         this.editRecipeImage.addEventListener('input', () => this.updateImagePreview());
         this.downloadImageUrlBtn.addEventListener('click', () => this.downloadCurrentImageUrl());
         
-        // Image settings events (with null checks for removed elements)
-        if (this.testImagePathBtn) {
-            this.testImagePathBtn.addEventListener('click', () => this.testImagePath());
-        }
         // Firebase image events - handled by Firebase Sync Manager
         
         // Firebase debug - handled by Firebase Sync Manager
@@ -2116,21 +2107,6 @@ class GroceryApp {
         
         this.saveMealPlans();
         this.renderMealCalendar();
-        this.closeTestRecipeModal();
-    }
-
-    closeTestRecipeModal() {
-        if (this.testRecipeModal) {
-            this.testRecipeModal.style.display = 'none';
-        }
-        this.currentMealSlot = null;
-    }
-
-    closeTestModal() {
-        if (this.testModal) {
-            this.testModal.style.display = 'none';
-        }
-        this.currentMealContext = null;
     }
 
     closeMealTypeModal() {
@@ -4081,9 +4057,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
 
 
 
-    // testModal() method disabled - test button removed
-
-
     // Real Shopping List Module Initialization
     async initializeShoppingList() {
         try {
@@ -4521,23 +4494,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         }
     }
 
-    // Test function for console debugging
-    async testRecipeImageHeader() {
-        console.log('🧪 Testing recipe image header functionality...');
-        
-        // Test with a mock recipe
-        const testRecipe = {
-            name: 'Test Recipe',
-            image: 'breakfast-2.png'  // Known image from our directory
-        };
-        
-        console.log('🧪 Calling updateRecipeImageHeader with test recipe...');
-        if (this.realRecipesManager && typeof this.realRecipesManager.updateRecipeImageHeader === 'function') {
-            await this.realRecipesManager.updateRecipeImageHeader(testRecipe);
-        }
-        console.log('🧪 Test completed');
-    }
-
     // ========== FIREBASE DELEGATION METHODS ==========
 
     loadFirebaseImageSetting() {
@@ -4577,13 +4533,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         console.log('🎼 Conductor: Delegating Google images migration to sync manager...');
         if (this.firebaseSyncManager) {
             await this.firebaseSyncManager.migrateGoogleImages();
-        }
-    }
-
-    debugFirebaseSetup() {
-        console.log('🎼 Conductor: Delegating Firebase debug to sync manager...');
-        if (this.firebaseSyncManager) {
-            this.firebaseSyncManager.debugFirebaseSetup();
         }
     }
 
@@ -4638,56 +4587,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
         }
     }
     
-    // DEBUG: Check module states
-    debugModuleStates() {
-        console.log('🔍 DEBUGGING MODULE STATES:');
-        console.log('📦 Products Manager:', !!window.realProductsCategoriesManager);
-        if (window.realProductsCategoriesManager) {
-            console.log('  - Categories:', window.realProductsCategoriesManager.getAllCategories().length);
-            console.log('  - Products:', window.realProductsCategoriesManager.getAllProducts().length);
-            console.log('  - Shopping Products:', window.realProductsCategoriesManager.getShoppingProducts().length);
-        }
-        console.log('🛒 Shopping Manager:', !!window.realShoppingListManager);
-        console.log('🏠 Pantry Manager:', !!window.realPantryManager);
-        console.log('🍳 Recipes Manager:', !!this.realRecipesManager);
-        console.log('🗂️ Menu Manager:', !!window.realMenuManager);
-        
-        // Check app getters
-        console.log('🎯 App Getters:');
-        console.log('  - this.categories.length:', this.categories.length);
-        console.log('  - this.allProducts.length:', this.allProducts.length);
-        console.log('  - this.shoppingItems.length:', this.shoppingItems.length);
-        
-        // Check localStorage directly
-        console.log('💾 LocalStorage:');
-        try {
-            const categoriesData = localStorage.getItem('categories');
-            const productsData = localStorage.getItem('allProducts');
-            console.log('  - categories raw length:', categoriesData ? categoriesData.length : 0);
-            console.log('  - allProducts raw length:', productsData ? productsData.length : 0);
-            if (categoriesData) {
-                const categories = JSON.parse(categoriesData);
-                console.log('  - categories parsed count:', categories.length);
-            }
-            if (productsData) {
-                const products = JSON.parse(productsData);
-                console.log('  - products parsed count:', products.length);
-                console.log('  - shopping products count:', products.filter(p => p.inShopping).length);
-            }
-        } catch (error) {
-            console.log('  - localStorage parsing error:', error);
-        }
-        
-        // Check DOM elements
-        console.log('🎨 DOM Elements:');
-        console.log('  - groceryList:', !!document.getElementById('grocery-list'));
-        console.log('  - pantryContainer:', !!document.getElementById('pantry-container'));
-        console.log('  - productsContainer:', !!document.getElementById('products-container'));
-        
-        // Check current tab
-        console.log('🗂️ Current Tab:', this.currentTab);
-    }
-
     // Hard refresh functionality for iPhone users
     hardRefresh() {
         console.log('🔄 FIXED REFRESH: Updating version while preserving user data');
@@ -4760,25 +4659,6 @@ Future Enhancement: This could connect to a real AI service to generate custom r
 document.addEventListener('DOMContentLoaded', () => {
     new GroceryApp(); // app is now assigned to window.app in constructor
 });
-
-// Global debug function for console use
-window.debugApp = function() {
-    if (window.app && window.app.debugModuleStates) {
-        window.app.debugModuleStates();
-    } else {
-        console.log('❌ App not available or debug method missing');
-    }
-};
-
-// Console help
-window.debugHelp = function() {
-    console.log('🔧 DEBUG COMMANDS:');
-    console.log('  debugApp() - Check all module states');
-    console.log('  window.app - Access main app instance');
-    console.log('  window.realProductsCategoriesManager - Products manager');
-    console.log('  window.realShoppingListManager - Shopping list manager');
-    console.log('  window.realPantryManager - Pantry manager');
-};
 
 // Service Worker registration for PWA functionality
 if ('serviceWorker' in navigator) {

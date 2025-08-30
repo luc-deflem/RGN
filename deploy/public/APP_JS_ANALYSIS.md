@@ -1,6 +1,7 @@
 # APP.JS COMPREHENSIVE ANALYSIS
 *Generated: 2025-08-15*
-*Current app.js line count: 5,971 lines*
+*Updated: 2025-08-22*
+*Current app.js line count: 4,674 lines*
 
 ## 🎯 PURPOSE: Identify unnecessary/obsolete code for removal
 
@@ -120,13 +121,6 @@
 - `importCsvFromText()` (5854) - Text import
 - `cleanCsvText()` (5864) - Text cleaning
 
-### 🧪 **DEBUG & TESTING (HIGH REMOVAL CANDIDATES)**
-- `debugBosuiData()` (2081) - Debug function
-- `testModal()` (5406) - Test modal
-- `hardRefresh()` (5392) - Hard refresh debug
-- `clearAllData()` (5495) - Clear all data
-- `debugFirebaseSetup()` (5946) - Firebase debug
-
 ### 🎯 **AI & ADVANCED FEATURES (Review Necessity)**
 - `generateAIRecipes()` (4693) - AI recipe generation
 - `generateProductAIRecipes()` (4761) - AI product recipes
@@ -141,9 +135,11 @@
 
 ## 🎯 **REMOVAL RECOMMENDATIONS**
 
+### ✅ **Completed Cleanup (2025-08-22)**
+- Removed `debugModuleStates`, `testRecipeImageHeader`, `debugFirebaseSetup` delegate, and leftover test modal references.
+- Removed `testImagePath` developer button and related code.
+
 ### 🚨 **HIGH PRIORITY REMOVAL (Est. 50-100 lines)**
-- `debugBosuiData()` - Debug function (unless still needed)
-- `testModal()` - Test function
 - `hardRefresh()` - Development debug
 - `clearAllData()` - Should be in settings, not main app
 
